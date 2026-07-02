@@ -1,10 +1,10 @@
 spring:
   cassandra:
     keyspace-name: tasks
-    username: jDrFHtkFSBugOjSusHMGmlKt
-    password: C-WGEfuQSjQ_GB67tn-6Hjf9pS8WH7HsWB38_TR9ycQ0jxMXWDIqPnTyCj,,cInX,TnPyqxA0GYd4W1WFv3_5nFKB-MPSl4KsKZR8BTFx,G2EOTAM-MyjuLIsgj5UoOK
+    username: ${ASTRA_USERNAME}
+    password: ${ASTRA_PASSWORD}
     schema-action: none
 
 datastax:
   astra:
-    secure-connect-bundle: classpath:astra/secure-connect-scheduler.zip
+    secure-connect-bundle: ${SECURE_CONNECT_BUNDLE}

@@ -1,43 +1,32 @@
 ########################################
-# IDE
+# IntelliJ IDEA
 ########################################
 .idea/
-.vscode/
 *.iml
-*.ipr
-*.iws
+
+########################################
+# VS Code
+########################################
+.vscode/
 
 ########################################
 # Maven
 ########################################
-target/
-build/
+**/target/
 
 ########################################
-# STS
+# Spring local config
 ########################################
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+**/src/main/resources/application-local.yml
 
 ########################################
-# Local Spring Config
-########################################
-**/application-local.yml
-**/application-secret.yml
-
-########################################
-# Environment Files
+# Environment files
 ########################################
 .env
 .env.*
 
 ########################################
-# Secure Connect Bundles
+# Astra Secure Connect Bundles
 ########################################
 **/src/main/resources/astra/*.zip
 
@@ -45,10 +34,9 @@ build/
 # Logs
 ########################################
 *.log
-logs/
 
 ########################################
-# OS Files
+# OS files
 ########################################
 .DS_Store
 Thumbs.db
