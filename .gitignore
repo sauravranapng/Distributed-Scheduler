@@ -1,8 +1,19 @@
 ########################################
+# Maven
+########################################
+**/target/
+
+# Keep Maven Wrapper
+!.mvn/wrapper/maven-wrapper.jar
+
+########################################
 # IntelliJ IDEA
 ########################################
 .idea/
 *.iml
+*.iws
+*.ipr
+out/
 
 ########################################
 # VS Code
@@ -10,17 +21,45 @@
 .vscode/
 
 ########################################
-# Maven
+# Eclipse / STS
 ########################################
-**/target/
+.project
+.classpath
+.settings/
+.apt_generated/
+.factorypath
+.springBeans
+.sts4-cache
 
 ########################################
-# Spring local config
+# NetBeans
 ########################################
-**/src/main/resources/application-local.yml
+nbproject/
+nbbuild/
+nbdist/
+.nb-gradle/
+build/
 
 ########################################
-# Environment files
+# OS Files
+########################################
+.DS_Store
+Thumbs.db
+
+########################################
+# Logs
+########################################
+*.log
+logs/
+
+########################################
+# Local Spring Configuration
+########################################
+**/application-local.yml
+**/application-secret.yml
+
+########################################
+# Environment Variables
 ########################################
 .env
 .env.*
@@ -31,12 +70,7 @@
 **/src/main/resources/astra/*.zip
 
 ########################################
-# Logs
+# Misc
 ########################################
-*.log
-
-########################################
-# OS files
-########################################
-.DS_Store
-Thumbs.db
+*.swp
+*.swo

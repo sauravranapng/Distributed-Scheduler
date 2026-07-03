@@ -27,7 +27,7 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>23</java.version>
+		<java.version>21</java.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -99,12 +99,6 @@
 				 <!-- Update the version as needed -->
 			</dependency>
 
-			<!-- Kafka Clients -->
-			<dependency>
-				<groupId>org.apache.kafka</groupId>
-				<artifactId>kafka-clients</artifactId>
-				<!-- Update the version as needed -->
-			</dependency>
 
 			<!-- Jackson for JSON Serialization -->
 			<dependency>
