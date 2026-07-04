@@ -1,4 +1,4 @@
-package com.saurav.jobservice.util;
+package com.saurav.jobservice.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

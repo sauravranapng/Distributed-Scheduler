@@ -1,4 +1,4 @@
-package com.saurav.jobservice.util;
+package com.saurav.jobservice.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,15 +13,11 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @PrimaryKeyClass
-public class TaskSchedulePrimaryKey {
+public class JobPrimaryKey {
+    @PrimaryKeyColumn(name = "user_id", type = PrimaryKeyType.PARTITIONED, ordinal = 0)
+    private UUID userId;
 
-    @PrimaryKeyColumn(name = "next_execution_time", type = PrimaryKeyType.PARTITIONED,ordinal = 0)
-    private long nextExecutionTime;
-
-    @PrimaryKeyColumn(name = "segment", type = PrimaryKeyType.PARTITIONED, ordinal = 1)
-    private int segment;
-
-    @PrimaryKeyColumn(name = "job_id", type = PrimaryKeyType.CLUSTERED,ordinal = 0)
+    @PrimaryKeyColumn(name = "job_id", type = PrimaryKeyType.CLUSTERED, ordinal = 1)
     private UUID jobId;
 
 }

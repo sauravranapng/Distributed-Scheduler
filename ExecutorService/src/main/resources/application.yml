@@ -1,0 +1,39 @@
+
+server:
+  port: 8082
+
+spring:
+  application:
+    name: executor-service
+
+  cassandra:
+    keyspace-name: tasks
+    username: ${ASTRA_USERNAME}
+    password: ${ASTRA_PASSWORD}
+    schema-action: none
+    request:
+      timeout: 10s
+
+    connection:
+      connect-timeout: 10s
+      init-query-timeout: 10s
+
+  kafka:
+    bootstrap-servers: 172.25.119.108:9092
+
+    consumer:
+      group-id: executor-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring.json.trusted.packages: "*"
+
+datastax:
+  astra:
+    secure-connect-bundle: ${SECURE_CONNECT_BUNDLE}
+
+app:
+  kafka:
+    topic: scheduling-topic

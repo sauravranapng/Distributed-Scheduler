@@ -1,9 +1,9 @@
 package com.saurav.jobservice.mapper;
 
 import com.saurav.jobservice.dto.JobDto;
+import com.saurav.jobservice.dto.JobDtoPrimaryKey;
 import com.saurav.jobservice.entity.Job;
-import com.saurav.jobservice.util.JobDtoPrimaryKey;
-import com.saurav.jobservice.util.JobPrimaryKey;
+import com.saurav.jobservice.entity.JobPrimaryKey;
 import org.springframework.stereotype.Component;
 
 @Component
