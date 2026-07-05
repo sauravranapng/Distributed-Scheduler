@@ -95,7 +95,11 @@ public class SchedulingService {
                         return;
                     }
 
-                    logger.info("Published JobExecutionEvent: {}", event);
+                    logger.info(
+                            "Published event for job {} to partition {} offset {}",
+                            event.getJobId(),
+                            result.getRecordMetadata().partition(),
+                            result.getRecordMetadata().offset());
 
                     rescheduleTask(taskSchedule);
 

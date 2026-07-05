@@ -4,5 +4,5 @@ public class Constants {
     private Constants() {
         // private constructor to prevent instantiation
     }
-    public static final int TOTAL_SEGMENTS = 100;
+    public static final int TOTAL_SEGMENTS = 25;
 }

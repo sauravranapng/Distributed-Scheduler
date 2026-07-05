@@ -20,7 +20,7 @@ datastax:
       init-query-timeout: 10s
 
   kafka:
-    bootstrap-servers: 172.25.119.108:9092
+    bootstrap-servers: localhost:9092
 
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer

@@ -36,7 +36,8 @@ import static com.saurav.schedulingservice.util.Constant.Z_NODE_SEPARATOR;
 @Component
 public class LeaderElectionService {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper =
+            new ObjectMapper().findAndRegisterModules();
 
     private String instanceId;
 
@@ -73,6 +74,7 @@ public class LeaderElectionService {
             if (client.getState() != CuratorFrameworkState.STARTED) {
                 throw new IllegalStateException("CuratorFramework failed to start.");
             }
+            initializePaths();
             registerInstance();
             // Initialize leader latch
             leaderLatch = new LeaderLatch(client, leaderPath);
@@ -111,7 +113,22 @@ public class LeaderElectionService {
             stop(); // Clean up resources
         }
     }
+    private void initializePaths() throws Exception {
 
+        createPersistentIfMissing("/scheduling-service");
+        createPersistentIfMissing(instancesPath);
+        createPersistentIfMissing(assignmentPath);
+    }
+
+    private void createPersistentIfMissing(String path) throws Exception {
+
+        if (client.checkExists().forPath(path) == null) {
+            client.create()
+                    .creatingParentsIfNeeded()
+                    .withMode(CreateMode.PERSISTENT)
+                    .forPath(path);
+        }
+    }
     public boolean isLeader() {
         return leaderLatch.hasLeadership();
     }
