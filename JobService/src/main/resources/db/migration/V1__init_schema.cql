@@ -14,5 +14,7 @@ CREATE TABLE IF NOT EXISTS task_schedule (
                                              segment int,
                                              job_id uuid,
                                              user_id uuid,
+                                             recurring boolean,
+                                             interval text,
                                              PRIMARY KEY ((next_execution_time, segment), job_id)
 );

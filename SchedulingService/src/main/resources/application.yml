@@ -7,18 +7,6 @@ spring:
     username: ${ASTRA_USERNAME}
     password: ${ASTRA_PASSWORD}
     schema-action: none
-
-datastax:
-  astra:
-    secure-connect-bundle: ${SECURE_CONNECT_BUNDLE}
-
-    request:
-      timeout: 10s
-
-    connection:
-      connect-timeout: 10s
-      init-query-timeout: 10s
-
   kafka:
     bootstrap-servers: localhost:9092
 
@@ -31,6 +19,19 @@ datastax:
       batch-size: 16384
       buffer-memory: 33554432
       linger-ms: 1
+
+datastax:
+  astra:
+    secure-connect-bundle: ${SECURE_CONNECT_BUNDLE}
+
+    request:
+      timeout: 10s
+
+    connection:
+      connect-timeout: 10s
+      init-query-timeout: 10s
+
+
 
 springdoc:
   api-docs:

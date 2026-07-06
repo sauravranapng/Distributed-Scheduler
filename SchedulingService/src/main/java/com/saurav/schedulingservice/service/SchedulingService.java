@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -38,17 +39,30 @@ public class SchedulingService {
     }
 
     /**
-     * Fetches the assigned segment for the current instance from ZooKeeper.
-     * Fetch jobs to execute for the assigned segment in the current minute.
+     * Fetches the assigned segments for the current instance from ZooKeeper.
+     * Fetch jobs to execute for the assigned segments in the current minute.
      *
      * @return List of job IDs
      */
     private List<TaskSchedule> getJobsForExecution() {
-        if (assignedSegments == null) {
-            logger.info("Assigned segment is not set. Ensure ZooKeeper is configured correctly.");
-        }
         long currentMinute = Instant.now().getEpochSecond() / 60;
-         return taskScheduleRepository.findJobsForCurrentMinute(currentMinute, assignedSegments);
+
+        List<TaskSchedule> jobs = new ArrayList<>();
+        for (Integer segment : assignedSegments) {
+
+            List<TaskSchedule> tasks =
+                    taskScheduleRepository.findJobsForCurrentMinute(
+                            currentMinute,
+                            segment);
+
+            logger.debug("Fetched {} jobs for segment {}",
+                    tasks.size(),
+                    segment);
+
+            jobs.addAll(tasks);
+        }
+
+        return jobs;
     }
 
     /**

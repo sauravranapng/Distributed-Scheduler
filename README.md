@@ -1,6 +1,6 @@
 #Distributed Scheduler
 
-1. Running the complete distributed system locally
+## 1. Running the complete distributed system locally
 
 Initially, I was concerned that my laptop (8 GB RAM) would not be able to run all the required components simultaneously:
 
@@ -11,23 +11,36 @@ Kafka
 ZooKeeper
 
 I reduced the JVM heap size for every Spring Boot service as well as Kafka and ZooKeeper. This allowed the complete distributed system to run comfortably on my local machine.
+### For Kafka
+I edited the `kafka-server-start.bat` script to reduce the default heap size from 1 GB to 256 MB:
+`
+IF ["%KAFKA_HEAP_OPTS%"] EQU [""] (
+rem detect OS architecture
+wmic os get osarchitecture | find /i "32-bit" >nul 2>&1
+IF NOT ERRORLEVEL 1 (
+set KAFKA_HEAP_OPTS=-Xmx512M -Xms512M
+) ELSE (
+set KAFKA_HEAP_OPTS=-Xmx1G -Xms1G
+)
+)`
+I replaced it with
+`IF ["%KAFKA_HEAP_OPTS%"] EQU [""] (
+set KAFKA_HEAP_OPTS=-Xms128M -Xmx256M
+)`
 
+### For ZooKeeper
+I edited the `\bin\zkServer.cmd` script to reduce the default heap size from 1 GB to 256 MB:
+`call %JAVA% ^
+"-Xms64m" ^
+"-Xmx128m" ^
+"-Dzookeeper.log.dir=%ZOO_LOG_DIR%" ^
+"-Dzookeeper.log.file=%ZOO_LOG_FILE%" ^
+"-XX:+HeapDumpOnOutOfMemoryError" ^
+...`
 Lesson: Infrastructure components do not always need their default heap sizes for local development. Proper JVM tuning makes local distributed-system development feasible.
 
-2. Kafka Client vs Kafka Broker
-
-Initially, I assumed the Kafka Maven dependencies in .m2 meant Kafka was already installed.
-
-I learned that:
-
-Spring Kafka dependencies only provide Kafka client libraries.
-A separate Kafka broker must still be installed and started.
-
-This clarified the separation between an application acting as a Kafka client and the Kafka server itself.
-
-3. Kafka KRaft Architecture
-
-While configuring Kafka, I learned why KRaft mode introduces both a Broker and a Controller.
+## 2. Kafka KRaft Architecture
+KRaft mode introduces both a Broker and a Controller.
 
 The Broker is responsible for:
 
@@ -41,91 +54,50 @@ cluster metadata
 leader election
 partition assignments
 
+We can assign the Controller role to a Broker, but it is not required. The Controller can run on a separate node.
 In KRaft mode, Kafka no longer depends on ZooKeeper for its own metadata management.
 
-4. Kafka Storage Formatting
+## 3. Kafka Storage Formatting
 
-Before starting Kafka for the first time, I had to initialize the metadata directory using:
-
-kafka-storage format
+Before starting Kafka for the first time, I had to initialize the metadata directory.
 
 I learned that Kafka cannot start until its metadata storage has been initialized with a Cluster ID.
 
 This is conceptually similar to initializing a database before first use.
+Navigate to `kafka_2.13-4.3.1\bin\windows` and run:
+`kafka-storage.bat random-uuid` then take this UUID(cluster-id) and run:
+`kafka-storage format -t <cluster-id> -c ..\..\config\kraft\server.properties`
+start Broker with:
+`kafka-server-start.bat ..\..\config\kraft\server.properties`
 
-5. Producer/Consumer Serialization
-
-While testing Kafka, I realized a producer sending a String cannot be consumed by a consumer expecting a JobExecutionEvent.
-
-Both producer and consumer must agree on:
-
-serializer
-deserializer
-message format
-
-I configured JSON serialization so both services exchanged strongly typed events.
-
-6. Kafka Topic Management
+## 6. Kafka Topic Management
 
 I deleted a Kafka topic while my producer and consumer services were still running.
 
 This eventually caused broker instability and log directory failures.
 
-Lesson:
+Lesson: Always stop producers and consumers before deleting or recreating Kafka topics.
 
-Always stop producers and consumers before deleting or recreating Kafka topics.
 
-ZooKeeper & Leader Election
-7. ZooKeeper Path Initialization
+## 7. You can verify and inspect zookeeper znodes using the zkCli.sh command line tool.
+ran `zkCli.cmd`
+To get content of znodes:
+`get /scheduling-service/segments/assignments`
 
-Leader election worked immediately, but segment assignment failed with:
+## 8.Set-up ZooKeeper and Kafka on Windows
 
-NoNode for /scheduling-service/instances
+### ZooKeeper
+1. Download ZooKeeper from the official Apache website.
+2. Extract the downloaded archive to a directory of your choice.
+3. Navigate to the `conf` directory and create a copy of the `zoo_sample.cfg` file, renaming it to `zoo.cfg`.
+4. Open the `zoo.cfg` file in a text editor and configure the data directory and client port as needed.
+5. Start ZooKeeper by running the `zkServer.cmd` script located in the `bin` directory.
 
-The issue was that my application assumed certain znodes already existed.
-
-I learned that distributed applications should explicitly initialize required ZooKeeper paths during startup instead of assuming they exist.
-
-8. Instance Registration
-
-While registering scheduler instances in ZooKeeper, serialization failed because my metadata contained an Instant.
-
-A plain Jackson ObjectMapper does not support Java Time classes by default.
-
-Using Spring Boot's configured ObjectMapper (or registering the Java Time module) solved the problem.
-
-Lesson:
-
-Never create a raw ObjectMapper inside Spring applications unless necessary.
-
-9. Debugging Distributed State
-
-While debugging leader election, I used the ZooKeeper CLI to inspect the actual znodes.
-
-Instead of relying only on application logs, I verified:
-
-/
-└── scheduling-service
-├── leader
-├── instances
-└── segments
-
-This significantly reduced debugging time.
-
-Lesson:
-
-When debugging distributed coordination, always inspect the coordination service directly.
-
-10. Stale Distributed Metadata
-
-A stale ZooKeeper znode contained:
-
-192.168.1.6
-
-instead of the JSON expected by my application.
-
-This caused deserialization failures until the znode was deleted.
-
-Lesson:
-
-Distributed coordination stores state externally. Old metadata can survive application restarts and produce unexpected behaviour.
+### Kafka
+1. Download Kafka from the official Apache website.
+2. Extract the downloaded archive to a directory of your choice.
+3. Navigate to the `config` directory and open the `server.properties` file in a text editor. Configure the necessary settings, such as broker ID, log directories, and listeners.
+4. generate a unique cluster ID by running the `kafka-storage.bat random-uuid` command in the `bin\windows` directory. Copy the generated UUID.
+5. Format the Kafka storage by running the `kafka-storage.bat format -t <cluster-id> -c ..\..\config\kraft\server.properties` command, replacing `<cluster-id>` with the UUID you generated in the previous step. This initializes the metadata storage for Kafka.
+6. Start Kafka by running the `kafka-server-start.bat` script located in the `bin\windows` directory, passing the path to the `server.properties` file as an argument.   
+`kafka-server-start.bat ..\..\config\server.properties`
