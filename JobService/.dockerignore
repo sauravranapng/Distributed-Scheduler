@@ -1,0 +1,10 @@
+#We require it because Before Docker even starts executing the Dockerfile it sends build context of project to
+#Docker Daemon because it needs to have all the files that are required to build the image.
+#So, if we have a large project with many files, it can take a long time to send all those files to the Docker Daemon.
+#To avoid this, we can use a .dockerignore file to tell Docker which files and directories to ignore when sending the build context.
+
+target/
+.idea/
+.git/
+*.iml
+README.md

@@ -46,6 +46,7 @@ public class SchedulingService {
      */
     private List<TaskSchedule> getJobsForExecution() {
         long currentMinute = Instant.now().getEpochSecond() / 60;
+        logger.info("Current minute: {}", currentMinute);
 
         List<TaskSchedule> jobs = new ArrayList<>();
         for (Integer segment : assignedSegments) {
