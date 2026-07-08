@@ -57,3 +57,9 @@ These changes improved:
 - **Scalability** through deterministic workload distribution.
 - **Execution efficiency** through direct primary-key lookups.
 - **Scheduler maintainability** by making segment ownership predictable.
+
+## Running Docker Containers 
+1.Add Dockerfile + .gitignore to the root of the project and build the image:
+`docker build -t distributed-scheduler/jobservice:1.0 .`
+2.Run the container:
+`docker run -p 8084:8084 -e SPRING_PROFILES_ACTIVE=local -e JAVA_OPTS="-Xms128m -Xmx256m" distributed-scheduler/jobservice:1.0`                         
