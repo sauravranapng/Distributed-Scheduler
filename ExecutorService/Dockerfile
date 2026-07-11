@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy pom.xml first to leverage Docker layer caching
 COPY pom.xml .
 
-# Download all dependencies
+# Download project dependencies
 RUN mvn dependency:go-offline
 
 # Copy application source
@@ -28,6 +28,6 @@ WORKDIR /app
 # Copy the generated JAR from the build stage
 COPY --from=build --chown=spring:spring /app/target/*.jar app.jar
 
-EXPOSE 8082
+EXPOSE 8083
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

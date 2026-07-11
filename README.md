@@ -101,3 +101,31 @@ To get content of znodes:
 5. Format the Kafka storage by running the `kafka-storage.bat format -t <cluster-id> -c ..\..\config\kraft\server.properties` command, replacing `<cluster-id>` with the UUID you generated in the previous step. This initializes the metadata storage for Kafka.
 6. Start Kafka by running the `kafka-server-start.bat` script located in the `bin\windows` directory, passing the path to the `server.properties` file as an argument.   
 `kafka-server-start.bat ..\..\config\server.properties`
+
+## To run docker Container of any service using local-profile and limited JVM heap size
+1. Add Dockerfile + .gitignore to the root of the project and build the image
+   `docker build -t distributed-scheduler/jobservice:1.0 .`
+2. Run the container: `docker run -p 8084:8084 -e SPRING_PROFILES_ACTIVE=local -e JAVA_OPTS="-Xms128m -Xmx256m" distributed-scheduler/jobservice:1.0`
+
+## Docker Concepts
+### Docker Network:
+"default bridge"(when you don't specify one) network->unrestricted network access to other containers ( within same  n/w ) using container IP addresses but not names.
+user-defined network-> containers can communicate with each other using container IP addresses or container names.
+For Container "A" localhost is container "A" itself.In network every container gets:an IP address+automatic DNS
+
+### Multiple Network:
+A container can be connected to multiple Docker networks.For example a frontend container may be connected to a bridge network with external access, and a --internal network to communicate with containers running backend services that do not need external network access.
+
+### IpAddress & ports:
+By default, the container gets an IP address for every Docker network it attaches to.
+All ports of containers on bridge networks are accessible from the Docker host and other containers connected to the same network. hence need to use
+-p flag to make a port available outside the host, and to containers in other bridge networks.
+                              Docker Network
+                             scheduler-network
+                                   │
+       ----------------------------------------------------------
+      │               │              │             │              │
+      ▼               ▼              ▼             ▼              ▼
+     ZooKeeper      Kafka       JobService   SchedulingService  ExecutorService
+                                    │               │                 │
+                                    └──── Astra Cassandra ────────────┘

@@ -1,44 +1,72 @@
 # ---------- Build Stage ----------
-# ---Start building my image from an existing image that already contains Java 22 , linux file system and Maven 3.9.9 .
-#You require mvn to compile and package your Java application becuase java -c does not compile and package the entire application.
+
+# Start from an image that already contains:
+# - Linux fileSystem
+# - Eclipse Temurin JDK 21
+# - Maven 3.9.9
+#
+# Maven is required because it compiles the source code, resolves dependencies,
+# runs the build lifecycle, and packages the application into an executable JAR.
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 
-# Creates (if necessary) and switches into /app directory in the container.
-# All subsequent commands will be run from this directory of container. because of this COPY pom.xml . -> this . will be /app of linux file system of the container instead of
-#the current directory of the host machine.
+# Creates (if it doesn't already exist) and switches to the /app directory
+# inside the container. All subsequent commands execute relative to this path.
 WORKDIR /app
 
-# Why copying pom.xml first and then running mvn dependency:go-offline instead of copying the whole project?
-# Because Docker caches individual command layers during the image build process.
-# If an input has changed, that cache breaks, and Docker must re-run that command and every single command after it.
-# If you change your source code but not your dependencies, Docker will use the cached layer and skip downloading dependencies again,which speeds up the build process.
+# Copy pom.xml first instead of the entire project.
+#
+# Docker caches every build layer. Since project dependencies are defined in
+# pom.xml, Docker can reuse the cached dependency layer as long as pom.xml
+# remains unchanged. If only the source code changes, Maven dependencies are
+# not downloaded again, significantly reducing build time.
 COPY pom.xml .
 
-# Downloads all dependencies from Maven Central.
-# And caches them in a Docker's Maven cache.
+# Downloads all project dependencies and stores them in Maven's local cache
+# inside the build image.
 RUN mvn dependency:go-offline
 
-# Copies your Java source code to app/src directory of the container.
+# Copy the application source code.
 COPY src ./src
 
-#Packages into Jar wihtout running tests to speed up the build process.
+# Compile and package the application into an executable JAR.
+# Tests are skipped to reduce build time.
 RUN mvn clean package -DskipTests
 
-# ---------- Runtime Stage ---------- This will creeate a runtime Image that contains only the compiled application(app.jar) and the Java 22 runtime environment.
 
-# we don not have maven here because we do not need it to run the application. We only need Java 21 to run the app.jar.
+# ---------- Runtime Stage ----------
+
+# Create a fresh runtime image containing only:
+# - Linux operating system
+# - Eclipse Temurin Java 21 Runtime (JRE)
+#
+# Maven is intentionally omitted because it is only needed during the build.
 FROM eclipse-temurin:21-jre
 
+#Containers provide isolation, but they share the host kernel.
+#If a container is compromised, running as a non-root user reduces what an attacker can do inside that container.
+#It doesn't eliminate all risk, but it limits the damage and follows the principle of least privilege—a core security practice.
+RUN useradd -ms /bin/bash spring
+
+# Set the working directory.
 WORKDIR /app
 
-#Copy the jar from above build stage to the current working directory of this runtime image.
-COPY --from=build /app/target/*.jar app.jar
+# Copy the generated JAR from the build stage.
+# The --chown option changes ownership of the JAR to the 'spring' user so the
+# application files belong to the user that executes them.
+COPY --from=build --chown=spring:spring /app/target/*.jar app.jar
 
-# Runtime Image has NO SOURCE CODE ,NO MAVEN ,NO TARGET DIRECTORY ,This is called a multi-stage build
+# Switch from the root user to the non-root 'spring' user.
+# Any process started after this instruction will execute with the permissions
+# of the spring user instead of root.
+USER spring
 
-#EXPOSE is mainly documentation and helps other tools understand which port the application uses inside container.
-#It does not actually publish the port. You still need to use -p option with docker run to publish the port.
+# The Spring Boot application listens on the port configured by server.port.
+# EXPOSE only documents the intended container port. The actual host-to-container
+# port mapping is configured when running the container using:
+# docker run -p <host-port>:<container-port>
 EXPOSE 8084
 
-#This is the command Docker runs when the container starts.I can use Java options like -Xmx to set the maximum heap size for the JVM.
+# Command executed when the container starts.
+# JAVA_OPTS allows JVM options (e.g., heap size) to be configured without
+# rebuilding the image.
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

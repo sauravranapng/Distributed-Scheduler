@@ -1,0 +1,27 @@
+services:
+  zookeeper:
+
+    image: zookeeper:3.9
+
+    container_name: zookeeper
+
+    restart: unless-stopped
+
+    hostname: zookeeper
+
+    ports:
+      - "2181:2181"
+
+    volumes:
+      - zookeeper-data:/data
+      - zookeeper-data:/datalog
+
+    networks:
+      - scheduler-network
+#  DNS only works inside a common network. do not require Ip of containers.
+networks:
+  scheduler-network:
+    driver: bridge
+volumes:
+  kafka-data:
+  zookeeper-data:
