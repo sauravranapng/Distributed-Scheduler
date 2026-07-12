@@ -129,3 +129,5 @@ All ports of containers on bridge networks are accessible from the Docker host a
      ZooKeeper      Kafka       JobService   SchedulingService  ExecutorService
                                     │               │                 │
                                     └──── Astra Cassandra ────────────┘
+## Docker Compose
+### Custom Kafka Image 

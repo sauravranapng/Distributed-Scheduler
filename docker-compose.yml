@@ -1,27 +1,44 @@
+name: distributed-scheduler
+
 services:
+
+  ###############################################################
+  # ZooKeeper (Used ONLY for SchedulingService Leader Election)
+  ###############################################################
   zookeeper:
 
     image: zookeeper:3.9
 
     container_name: zookeeper
-#If container crashes, it will be restarted automatically unless it is stopped manually.
-    restart: unless-stopped
 
     hostname: zookeeper
-# Allows to connect to zkCli.sh from host machine using localhost:2181 <Host:Container>
+
+    restart: unless-stopped
+    #${ZOOKEEPER_PORT} is port number on host machine because port of container is hard coded in config files.
     ports:
-      - "2181:2181"
+      - "${ZOOKEEPER_PORT}:2181"
 
     volumes:
       - zookeeper-data:/data
-      - zookeeper-data:/datalog
+      - zookeeper-log:/datalog
+
+    healthcheck:
+      test: ["CMD", "sh", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
     networks:
       - scheduler-network
 
+  ###############################################################
+  # Kafka (KRaft Mode)
+  ###############################################################
   kafka:
 
-    image: apache/kafka:3.9.1
+    build:
+      context: ./infrastructure/kafka
+      dockerfile: Dockerfile
 
     container_name: kafka
 
@@ -29,42 +46,190 @@ services:
 
     restart: unless-stopped
 
-    depends_on:
-      - zookeeper
+    ports:
+      - "${KAFKA_PORT}:9092"
+
+    environment:
+      KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+#kafka-data is a Docker-managed persistent volume, while /var/lib/kafka/data is the directory inside the Kafka container where Kafka reads and writes its data.
+#Docker mounts the volume onto that directory, so any data written there is stored in the volume and survives even if the container is deleted.
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh",
+          "--bootstrap-server",
+          "localhost:9092"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+    networks:
+      - scheduler-network
+
+  ###############################################################
+  # Job Service
+  ###############################################################
+  jobservice:
+# It internally executes something equivalent to `docker build ./JobService` which sends context to docker daemon and builds the image using the Dockerfile in that directory.
+# Build context set the scope of job service build . this won't be possible `COPY ../ExecutorService .` in this docker file docker daemon will restrict it because it is outside build context.
+    build:
+      context: ./JobService
+      dockerfile: Dockerfile
+
+    container_name: jobservice
+
+    hostname: jobservice
+
+    restart: unless-stopped
 
     ports:
-      - "9092:9092"
+      - "${JOB_SERVICE_PORT}:8084"
+
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+      JAVA_OPTS: ${JAVA_OPTS}
+
+# Docker executes it inside the JobService container.Since both the Spring Boot application and wget are inside the same container hence localhost will resolve to the container itself and the health check will work as expected.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "http://localhost:8084/actuator/health"
+        ]
+      interval: 30s
+  #How long Docker waits for one health check command to finish before considering it a failure.
+      timeout: 10s
+  #How many consecutive failed health checks are allowed before Docker marks the container as unhealthy.
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - scheduler-network
+
+  ###############################################################
+  # Scheduling Service
+  ###############################################################
+  schedulingservice:
+
+    build:
+      context: ./SchedulingService
+      dockerfile: Dockerfile
+
+    container_name: schedulingservice
+
+    hostname: schedulingservice
+
+    restart: unless-stopped
+
+    depends_on:
+
+      kafka:
+        condition: service_healthy
+
+      zookeeper:
+        condition: service_healthy
+
+    ports:
+      - "${SCHEDULING_SERVICE_PORT}:8082"
 
     environment:
 
-      KAFKA_NODE_ID: 1
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+#for restricting the memory and heap size of the JVM running inside the container.
+      JAVA_OPTS: ${JAVA_OPTS}
 
-      KAFKA_PROCESS_ROLES: broker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      ZOOKEEPER_CONNECT_STRING: zookeeper:2181
 
-      KAFKA_LISTENERS: PLAINTEXT://:9092
-
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
-    volumes:
-
-      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "http://localhost:8082/actuator/health"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
     networks:
-
       - scheduler-network
-#  DNS only works inside a common user-defined network.After this dedicated n/w we do not require Ip of containers.
-#Services can communicate using service-name:port
+
+  ###############################################################
+  # Executor Service
+  ###############################################################
+  executorservice:
+
+    build:
+      context: ./ExecutorService
+      dockerfile: Dockerfile
+
+    container_name: executorservice
+
+    hostname: executorservice
+
+    restart: unless-stopped
+
+    depends_on:
+
+      kafka:
+        condition: service_healthy
+
+    ports:
+      - "${EXECUTOR_SERVICE_PORT}:8083"
+
+    environment:
+
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
+
+      JAVA_OPTS: ${JAVA_OPTS}
+
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "http://localhost:8083/actuator/health"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - scheduler-network
+
+###############################################################
+# Docker Network
+###############################################################
+
 networks:
+
   scheduler-network:
+
     driver: bridge
 
-#if you delete the container, the data will be lost. So we need to create a volume to persist the data.
+###############################################################
+# Persistent Volumes
+###############################################################
+
 volumes:
+
   kafka-data:
+
   zookeeper-data:
+
+  zookeeper-log:

@@ -14,8 +14,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -51,10 +49,8 @@ public class JobServiceImpl implements JobService {
 
         Job job = jobMapper.toEntity(jobDto);
 
-        long nextExecutionTime = LocalDateTime.now()
+        long nextExecutionTime = Instant.now()
                 .plus(Duration.parse(job.getInterval()))
-                .atZone(ZoneOffset.systemDefault())
-                .toInstant()
                 .getEpochSecond() / 60;
 
         int segment = calculateSegment(job.getJobPrimaryKey().getJobId());
