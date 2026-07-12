@@ -62,7 +62,6 @@ logs/
 # Environment Variables
 ########################################
 .env
-.env.*
 
 ########################################
 # Astra Secure Connect Bundles

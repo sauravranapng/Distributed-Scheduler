@@ -4,11 +4,11 @@ services:
     image: zookeeper:3.9
 
     container_name: zookeeper
-
+#If container crashes, it will be restarted automatically unless it is stopped manually.
     restart: unless-stopped
 
     hostname: zookeeper
-
+# Allows to connect to zkCli.sh from host machine using localhost:2181 <Host:Container>
     ports:
       - "2181:2181"
 
@@ -18,10 +18,53 @@ services:
 
     networks:
       - scheduler-network
-#  DNS only works inside a common network. do not require Ip of containers.
+
+  kafka:
+
+    image: apache/kafka:3.9.1
+
+    container_name: kafka
+
+    hostname: kafka
+
+    restart: unless-stopped
+
+    depends_on:
+      - zookeeper
+
+    ports:
+      - "9092:9092"
+
+    environment:
+
+      KAFKA_NODE_ID: 1
+
+      KAFKA_PROCESS_ROLES: broker
+
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+
+      KAFKA_LISTENERS: PLAINTEXT://:9092
+
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+    volumes:
+
+      - kafka-data:/var/lib/kafka/data
+
+    networks:
+
+      - scheduler-network
+#  DNS only works inside a common user-defined network.After this dedicated n/w we do not require Ip of containers.
+#Services can communicate using service-name:port
 networks:
   scheduler-network:
     driver: bridge
+
+#if you delete the container, the data will be lost. So we need to create a volume to persist the data.
 volumes:
   kafka-data:
   zookeeper-data:
