@@ -120,14 +120,26 @@ A container can be connected to multiple Docker networks.For example a frontend 
 By default, the container gets an IP address for every Docker network it attaches to.
 All ports of containers on bridge networks are accessible from the Docker host and other containers connected to the same network. hence need to use
 -p flag to make a port available outside the host, and to containers in other bridge networks.
-                              Docker Network
-                             scheduler-network
-                                   │
-       ----------------------------------------------------------
-      │               │              │             │              │
-      ▼               ▼              ▼             ▼              ▼
-     ZooKeeper      Kafka       JobService   SchedulingService  ExecutorService
-                                    │               │                 │
-                                    └──── Astra Cassandra ────────────┘
+       
 ## Docker Compose
-### Custom Kafka Image 
+
+## Custom Kafka Image 
+Custom Kafka Docker Image
+
+Instead of using a pre-configured Kafka distribution, this project builds a custom Kafka Docker image on top of the official apache/kafka image.
+
+The custom image consists of:
+
+`Dockerfile` – Builds the Kafka runtime image and packages the custom configuration.
+`server.properties` – Defines the broker configuration for running Kafka in KRaft mode.
+`start-kafka.sh` – Initializes Kafka storage by formatting it only on the first startup and then starts the broker.
+Docker Volume – Persists Kafka metadata (meta.properties) and topic logs across container restarts.
+
+**Why build a custom Kafka image?**
+Building a custom image provides several advantages over using the default image as-is:
+
+1.Complete control over Kafka configuration through a version-controlled server.properties.
+2.Infrastructure as Code (IaC) by keeping the Dockerfile, startup scripts, and broker configuration alongside the application source code.
+3.Automated KRaft initialization, eliminating manual execution of kafka-storage.sh format.
+4.Persistent broker state using Docker volumes, ensuring metadata and topic data survive container recreation.
+5.Reproducible deployments, allowing any developer to build and start the same Kafka broker with a single docker compose up --build.
