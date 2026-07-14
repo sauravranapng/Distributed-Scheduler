@@ -123,7 +123,7 @@ All ports of containers on bridge networks are accessible from the Docker host a
        
 ## Docker Compose
 
-## Custom Kafka Image 
+### Custom Kafka Image 
 Custom Kafka Docker Image
 
 Instead of using a pre-configured Kafka distribution, this project builds a custom Kafka Docker image on top of the official apache/kafka image.
@@ -143,3 +143,19 @@ Building a custom image provides several advantages over using the default image
 3.Automated KRaft initialization, eliminating manual execution of kafka-storage.sh format.
 4.Persistent broker state using Docker volumes, ensuring metadata and topic data survive container recreation.
 5.Reproducible deployments, allowing any developer to build and start the same Kafka broker with a single docker compose up --build.
+
+### how to use Docker Compose
+**docker compose build** :Builds or rebuilds the Docker images only. It does not create or start containers.
+**docker compose up** :Creates and starts containers. If an image doesn't exist, it will build it first (unless you use --no-build).
+**docker compose down** :Stops and removes containers, networks, but not named volumes created by docker compose up. It does not remove images unless you use the --rmi flag.
+**docker compose up --build** : Rebuilds the images and starts the containers. It is useful when you have made changes to the Dockerfile or application code and want to rebuild the images before starting the containers.
+### To check logs of a specific service
+`docker compose logs <service-name>`
+
+### To open a shell inside a running container
+`docker compose exec -it <service-name> sh`
+docker exec   -it   zookeeper   sh
+Execute a command in a running container-----Interactive terminal------Target container-----Command to run inside the container
+
+
+

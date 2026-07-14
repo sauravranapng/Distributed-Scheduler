@@ -21,6 +21,9 @@ services:
     volumes:
       - zookeeper-data:/data
       - zookeeper-log:/datalog
+    #ruok will not execute because it is not in the whitelist. We need to add it.
+    environment:
+      ZOO_4LW_COMMANDS_WHITELIST: ruok,mntr,stat
 
     healthcheck:
       test: ["CMD", "sh", "-c", "echo ruok | nc localhost 2181 | grep imok"]
