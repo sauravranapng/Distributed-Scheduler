@@ -1,14 +1,17 @@
 package com.saurav.schedulingservice.controller;
 
 import com.saurav.schedulingservice.leader.LeaderElectionService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class leaderController {
-    @Autowired
-    private LeaderElectionService leaderElectionService;
+public class LeaderController {
+
+    private final LeaderElectionService leaderElectionService;
+
+     public LeaderController(LeaderElectionService leaderElectionService){
+        this.leaderElectionService=leaderElectionService;
+    }
 
     @GetMapping("/is-leader")
     public String isLeader() {

@@ -157,5 +157,15 @@ Building a custom image provides several advantages over using the default image
 docker exec   -it   zookeeper   sh
 Execute a command in a running container-----Interactive terminal------Target container-----Command to run inside the container
 
+### To run multiple instances of schedulingService 
+1.Remove the `container_name` and `hostname` directives from the schedulingService service in the docker-compose.yml file. 
+This allows Docker Compose to automatically assign unique names to each instance of the service, enabling you to run multiple instances simultaneously.
+2.Remove port mapping for schedulingService in the docker-compose.yml file.
+This prevents port conflicts when running multiple instances of the service, as each instance will use its own internal port within the Docker network.
+3.Run the following command to start multiple instances of schedulingService:
+`docker compose up --scale schedulingService=3`
+
+Segment Assignments between multiple instances of schedulingService.
+![Segment Assignments](resources/segment-assignment.png)
 
 
