@@ -1,4 +1,4 @@
-package com.saurav.jobservice.entity;
+package com.saurav.jobservice.model.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

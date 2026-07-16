@@ -1,4 +1,4 @@
-package com.saurav.jobservice.dto;
+package com.saurav.jobservice.model.dto.primaryKey;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

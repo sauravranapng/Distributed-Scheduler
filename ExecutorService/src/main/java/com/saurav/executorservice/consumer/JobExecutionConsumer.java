@@ -1,6 +1,6 @@
 package com.saurav.executorservice.consumer;
 
-import com.saurav.executorservice.event.JobExecutionEvent;
+import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.service.JobExecutionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

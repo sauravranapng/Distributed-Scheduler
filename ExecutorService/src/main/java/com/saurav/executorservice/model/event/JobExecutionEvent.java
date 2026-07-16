@@ -1,4 +1,4 @@
-package com.saurav.executorservice.event;
+package com.saurav.executorservice.model.event;
 
 
 import lombok.AllArgsConstructor;

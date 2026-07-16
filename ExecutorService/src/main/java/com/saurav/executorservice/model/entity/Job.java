@@ -1,5 +1,6 @@
-package com.saurav.executorservice.entity;
+package com.saurav.executorservice.model.entity;
 
+import com.saurav.executorservice.model.primarykey.JobPrimaryKey;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

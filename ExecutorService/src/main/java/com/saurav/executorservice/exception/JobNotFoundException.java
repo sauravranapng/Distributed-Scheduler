@@ -1,6 +1,7 @@
 package com.saurav.executorservice.exception;
 
-import com.saurav.executorservice.entity.JobPrimaryKey;
+
+import com.saurav.executorservice.model.primarykey.JobPrimaryKey;
 
 public class JobNotFoundException extends RuntimeException {
 
