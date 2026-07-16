@@ -1,5 +1,6 @@
-package com.saurav.jobservice.dto;
+package com.saurav.jobservice.model.dto;
 
+import com.saurav.jobservice.model.primarykey.JobDtoPrimaryKey;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

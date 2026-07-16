@@ -1,4 +1,4 @@
-package com.saurav.schedulingservice.event;
+package com.saurav.schedulingservice.model.event;
 
 
 import lombok.AllArgsConstructor;

@@ -7,11 +7,11 @@ import lombok.Getter;
  */
 @Getter
 public class ResourceNotFoundException extends RuntimeException {
-    private String resourceName;
-    private String firstFieldName;
-    private String secondFieldName;
-    private Object firstFieldValue;
-    private Object secondFieldValue;
+    private final String resourceName;
+    private final String firstFieldName;
+    private final String secondFieldName;
+    private final Object firstFieldValue;
+    private final Object secondFieldValue;
     public ResourceNotFoundException(String resourceName, String firstFieldName,String secondFieldName, Object firstFieldValue , Object secondFieldValue) {
         super(String.format("%s not found with %s : '%s' and %s :'%s'", resourceName,
                 firstFieldName ,  firstFieldValue,secondFieldName , secondFieldValue));

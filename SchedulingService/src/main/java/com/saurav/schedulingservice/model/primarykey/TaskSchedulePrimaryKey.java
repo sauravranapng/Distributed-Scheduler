@@ -1,4 +1,4 @@
-package com.saurav.schedulingservice.util;
+package com.saurav.schedulingservice.model.primarykey;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

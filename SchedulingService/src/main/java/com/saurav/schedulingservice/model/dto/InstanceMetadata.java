@@ -1,4 +1,4 @@
-package com.saurav.schedulingservice.dto;
+package com.saurav.schedulingservice.model.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

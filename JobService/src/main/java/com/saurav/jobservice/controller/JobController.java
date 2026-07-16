@@ -1,5 +1,6 @@
 package com.saurav.jobservice.controller;
-import com.saurav.jobservice.dto.JobDto;
+
+import com.saurav.jobservice.model.dto.JobDto;
 import com.saurav.jobservice.service.JobService;
 import org.springframework.beans.factory.annotation.Autowired;
 

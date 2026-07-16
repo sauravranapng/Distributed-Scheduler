@@ -1,6 +1,6 @@
-package com.saurav.schedulingservice.entity;
+package com.saurav.schedulingservice.model.entity;
 
-import com.saurav.schedulingservice.util.TaskSchedulePrimaryKey;
+import com.saurav.schedulingservice.model.primarykey.TaskSchedulePrimaryKey;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,7 +14,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table("task_schedule")
-public class TaskSchedule{
+public class TaskSchedule {
 
     @PrimaryKey
     private TaskSchedulePrimaryKey key;

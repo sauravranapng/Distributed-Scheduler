@@ -1,8 +1,8 @@
-package com.saurav.schedulingservice.leader;
+package com.saurav.schedulingservice.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.saurav.schedulingservice.dto.InstanceMetadata;
+import com.saurav.schedulingservice.model.dto.InstanceMetadata;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;

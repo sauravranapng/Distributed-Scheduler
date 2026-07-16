@@ -1,5 +1,5 @@
 package com.saurav.schedulingservice.exception;
-import com.saurav.schedulingservice.dto.ErrorResponse;
+import com.saurav.schedulingservice.model.dto.ErrorResponse;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;

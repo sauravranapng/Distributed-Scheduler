@@ -1,7 +1,7 @@
 package com.saurav.schedulingservice.mapper;
 
-import com.saurav.schedulingservice.entity.TaskSchedule;
-import com.saurav.schedulingservice.util.TaskSchedulePrimaryKey;
+import com.saurav.schedulingservice.model.entity.TaskSchedule;
+import com.saurav.schedulingservice.model.primarykey.TaskSchedulePrimaryKey;
 import org.springframework.stereotype.Component;
 
 @Component

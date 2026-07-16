@@ -8,8 +8,8 @@ import org.springframework.http.HttpStatus;
  */
 @Getter
 public class JobServiceApiException extends RuntimeException {
-    private HttpStatus httpStatus;
-    private String message;
+    private final HttpStatus httpStatus;
+    private final String message;
     public JobServiceApiException(HttpStatus httpStatus, String message) {
         super(message);
         this.httpStatus = httpStatus;

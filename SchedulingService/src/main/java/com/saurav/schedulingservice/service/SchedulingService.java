@@ -1,8 +1,7 @@
 package com.saurav.schedulingservice.service;
-import com.saurav.schedulingservice.entity.TaskSchedule;
-import com.saurav.schedulingservice.event.JobExecutionEvent;
-import com.saurav.schedulingservice.leader.LeaderElectionService;
 import com.saurav.schedulingservice.mapper.TaskScheduleMapper;
+import com.saurav.schedulingservice.model.entity.TaskSchedule;
+import com.saurav.schedulingservice.model.event.JobExecutionEvent;
 import com.saurav.schedulingservice.repository.TaskScheduleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

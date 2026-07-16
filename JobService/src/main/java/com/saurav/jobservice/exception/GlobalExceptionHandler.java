@@ -1,6 +1,6 @@
 package com.saurav.jobservice.exception;
 
-import com.saurav.jobservice.dto.ErrorResponse;
+import com.saurav.jobservice.model.dto.ErrorResponse;
 import jakarta.annotation.Nonnull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -13,48 +13,44 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-/*
-     * it is a centralized exception handler class to handle the exceptions
-     * use this as utility while building the business logic in service layer
+/**
+ * Centralized exception handler for all API exceptions.
+ * Provides consistent error response formatting across the service.
  */
 
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
-    // it will handle the exception for invalid user or product ID
+    // Handles ResourceNotFoundException for missing resources
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
             ResourceNotFoundException ex,
             WebRequest webRequest
     ) {
-        ErrorResponse errorDetails = new ErrorResponse(new Date(), ex.getMessage(), webRequest.getDescription(false));
+        ErrorResponse errorDetails = new ErrorResponse(Instant.now(), ex.getMessage(), webRequest.getDescription(false));
         return new ResponseEntity<>(errorDetails, HttpStatus.NOT_FOUND);
     }
-    /* It will handle the exception when the user id is not linked
-       with the product id in the table
-    */
+    // Handles JobServiceApiException for application-level errors
     @ExceptionHandler(JobServiceApiException.class)
     public ResponseEntity<ErrorResponse> handleGloBazaarApiException(
             JobServiceApiException ex,
             WebRequest webRequest
     ) {
-        ErrorResponse errorDetails = new ErrorResponse(new Date(), ex.getMessage(), webRequest.getDescription(false));
+        ErrorResponse errorDetails = new ErrorResponse(Instant.now(), ex.getMessage(), webRequest.getDescription(false));
         return new ResponseEntity<>(errorDetails, HttpStatus.BAD_REQUEST);
     }
-    // it will handle the generic exceptions
+    // Handles all uncaught exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAnyException(
             Exception ex,
             WebRequest webRequest
     ){
-        ErrorResponse errorDetails = new ErrorResponse(new Date(), ex.getMessage(), webRequest.getDescription(false));
+        ErrorResponse errorDetails = new ErrorResponse(Instant.now(), ex.getMessage(), webRequest.getDescription(false));
         return new ResponseEntity<>(errorDetails, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    /* it will handle the exception
-       for the validation errors for both user and product entity
-    */
+    // Handles validation errors for request method arguments
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex,
@@ -64,7 +60,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ) {
         Map<String,String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(
-                (error)->{
+                error->{
                     String field = ((FieldError) error).getField();
                     String message = error.getDefaultMessage();
                     errors.put(field,message);

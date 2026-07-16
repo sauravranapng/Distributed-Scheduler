@@ -1,12 +1,13 @@
 package com.saurav.jobservice.service.impl;
-import com.saurav.jobservice.dto.JobDto;
-import com.saurav.jobservice.dto.JobDtoPrimaryKey;
-import com.saurav.jobservice.entity.Job;
-import com.saurav.jobservice.entity.JobPrimaryKey;
-import com.saurav.jobservice.entity.TaskSchedule;
+
 import com.saurav.jobservice.exception.ResourceNotFoundException;
 import com.saurav.jobservice.mapper.JobMapper;
 import com.saurav.jobservice.mapper.TaskScheduleMapper;
+import com.saurav.jobservice.model.dto.JobDto;
+import com.saurav.jobservice.model.entity.Job;
+import com.saurav.jobservice.model.entity.TaskSchedule;
+import com.saurav.jobservice.model.primarykey.JobDtoPrimaryKey;
+import com.saurav.jobservice.model.primarykey.JobPrimaryKey;
 import com.saurav.jobservice.repository.JobRepository;
 import com.saurav.jobservice.repository.TaskScheduleRepository;
 import com.saurav.jobservice.service.JobService;

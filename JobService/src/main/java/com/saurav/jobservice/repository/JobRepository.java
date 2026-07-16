@@ -1,8 +1,9 @@
 package com.saurav.jobservice.repository;
 
 
-import com.saurav.jobservice.entity.Job;
-import com.saurav.jobservice.entity.JobPrimaryKey;
+
+import com.saurav.jobservice.model.entity.Job;
+import com.saurav.jobservice.model.primarykey.JobPrimaryKey;
 import org.springframework.data.cassandra.repository.CassandraRepository;
 import org.springframework.stereotype.Repository;
 

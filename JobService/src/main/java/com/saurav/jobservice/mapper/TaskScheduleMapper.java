@@ -1,8 +1,8 @@
 package com.saurav.jobservice.mapper;
 
-import com.saurav.jobservice.entity.Job;
-import com.saurav.jobservice.entity.TaskSchedule;
-import com.saurav.jobservice.entity.TaskSchedulePrimaryKey;
+import com.saurav.jobservice.model.entity.Job;
+import com.saurav.jobservice.model.entity.TaskSchedule;
+import com.saurav.jobservice.model.primarykey.TaskSchedulePrimaryKey;
 import org.springframework.stereotype.Component;
 
 @Component

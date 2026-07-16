@@ -1,6 +1,7 @@
 package com.saurav.jobservice.service;
 
-import com.saurav.jobservice.dto.JobDto;
+
+import com.saurav.jobservice.model.dto.JobDto;
 
 import java.util.List;
 import java.util.UUID;
