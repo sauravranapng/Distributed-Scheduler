@@ -3,6 +3,7 @@ package com.saurav.schedulingservice.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saurav.schedulingservice.model.dto.InstanceMetadata;
+import com.saurav.schedulingservice.model.event.AssignmentChangedEvent;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.apache.curator.framework.recipes.leader.LeaderLatchListener;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.net.InetAddress;
@@ -35,6 +37,8 @@ import static com.saurav.schedulingservice.util.Constant.Z_NODE_SEPARATOR;
 @Slf4j
 @Component
 public class LeaderElectionService {
+    private final ApplicationEventPublisher eventPublisher;
+
 
     private final ObjectMapper objectMapper =
             new ObjectMapper().findAndRegisterModules();
@@ -64,6 +68,15 @@ public class LeaderElectionService {
 
     private final Map<String, List<Integer>> segmentAssignments = new ConcurrentHashMap<>();
 
+    public LeaderElectionService(ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
+
+    /**
+     * Initializes the ZooKeeper client, registers this scheduler instance,
+     * participates in leader election, and starts watchers for instance and
+     * segment assignment changes.
+     */
     @PostConstruct
     public void start() {
         try {
@@ -113,6 +126,13 @@ public class LeaderElectionService {
             stop(); // Clean up resources
         }
     }
+
+    /**
+     * Creates the required ZooKeeper znodes used by the scheduling service
+     * if they do not already exist.
+     *
+     * @throws Exception if an error occurs while creating the znodes
+     */
     private void initializePaths() throws Exception {
 
         createPersistentIfMissing("/scheduling-service");
@@ -120,6 +140,12 @@ public class LeaderElectionService {
         createPersistentIfMissing(assignmentPath);
     }
 
+    /**
+     * Creates a persistent ZooKeeper znode if it does not already exist.
+     *
+     * @param path the znode path to create
+     * @throws Exception if the znode cannot be created
+     */
     private void createPersistentIfMissing(String path) throws Exception {
 
         if (client.checkExists().forPath(path) == null) {
@@ -129,10 +155,21 @@ public class LeaderElectionService {
                     .forPath(path);
         }
     }
+
+    /**
+     * Determines whether the current scheduler instance is the active leader.
+     *
+     * @return {@code true} if this instance currently holds leadership;
+     *         {@code false} otherwise
+     */
     public boolean isLeader() {
         return leaderLatch.hasLeadership();
     }
 
+    /**
+     * Evenly distributes scheduler segments across all active instances and
+     * persists the assignments to ZooKeeper.
+     */
     private void assignSegmentsToAllInstances() {
         try {
             List<String> activeInstances = client.getChildren().forPath(instancesPath);
@@ -171,6 +208,12 @@ public class LeaderElectionService {
         }
     }
 
+    /**
+     * Watches for scheduler instance registration and removal events.
+     *
+     * <p>When the set of active instances changes, the leader recalculates
+     * and republishes segment assignments.
+     */
     private void watchInstances() {
 
         CuratorCache instancesCache;
@@ -200,6 +243,10 @@ public class LeaderElectionService {
         instancesCache.start();
     }
 
+    /**
+     * Persists the current segment assignments to ZooKeeper so that all
+     * scheduler instances can refresh their local assignment cache.
+     */
     private void updateSegmentAssignmentsInZookeeper() {
         try {
             byte[] data = new ObjectMapper().writeValueAsBytes(segmentAssignments);
@@ -228,6 +275,10 @@ public class LeaderElectionService {
         }
     }
 
+    /**
+     * Watches for updates to segment assignments stored in ZooKeeper and
+     * refreshes the local assignment cache when changes occur.
+     */
     private void watchSegmentAssignments() {
         CuratorCache assignmentCache;
 
@@ -255,6 +306,13 @@ public class LeaderElectionService {
         assignmentCache.start();
     }
 
+    /**
+     * Refreshes the local segment assignment cache from ZooKeeper.
+     *
+     * <p>If the segment assignment for the current scheduler instance changes,
+     * an {@link AssignmentChangedEvent} is published to trigger immediate
+     * processing of newly assigned segments.
+     */
     private void updateLocalSegmentCache() {
         try {
 
@@ -267,8 +325,18 @@ public class LeaderElectionService {
             byte[] data = client.getData().forPath(assignmentPath);
             Map<String, List<Integer>> updatedAssignments =
                     objectMapper.readValue(data, new TypeReference<Map<String, List<Integer>>>() {});
+            List<Integer> previous =
+                    segmentAssignments.getOrDefault(instanceId, Collections.emptyList());
             segmentAssignments.clear();
             segmentAssignments.putAll(updatedAssignments);
+            List<Integer> current =
+                    segmentAssignments.getOrDefault(instanceId, Collections.emptyList());
+
+            if (!previous.equals(current)) {
+
+                log.info("Assignments changed from {} to {}", previous, current);
+
+                eventPublisher.publishEvent(new AssignmentChangedEvent());            }
 
             log.info("Updated local segment cache with data: {}", updatedAssignments);
         } catch (Exception e) {
@@ -276,6 +344,11 @@ public class LeaderElectionService {
         }
     }
 
+    /**
+     * Registers the current scheduler instance as an ephemeral node in
+     * ZooKeeper so it can participate in leader election and receive
+     * segment assignments.
+     */
     private void registerInstance() {
 
         try {
@@ -306,10 +379,20 @@ public class LeaderElectionService {
 
     }
 
+    /**
+     * Returns the segments currently assigned to this scheduler instance.
+     *
+     * @return the list of assigned segment identifiers, or an empty list if
+     *         no segments are currently assigned
+     */
     public List<Integer> getAssignedSegmentsForCurrentInstance() {
         return segmentAssignments.getOrDefault(instanceId, Collections.emptyList());
     }
 
+    /**
+     * Releases ZooKeeper resources by closing the leader latch and client
+     * during application shutdown.
+     */
     @PreDestroy
     public void stop() {
         try {
@@ -324,6 +407,13 @@ public class LeaderElectionService {
         }
     }
 
+    /**
+     * Builds the metadata describing the current scheduler instance.
+     *
+     * @return the instance metadata containing the instance identifier,
+     *         host address, server port, and registration timestamp
+     * @throws UnknownHostException if the local host address cannot be resolved
+     */
     private InstanceMetadata buildInstanceMetadata() throws UnknownHostException {
 
         return new InstanceMetadata(
