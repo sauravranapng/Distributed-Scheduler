@@ -170,4 +170,6 @@ This prevents port conflicts when running multiple instances of the service, as 
 Segment Assignments between multiple instances of schedulingService.
 ![Segment Assignments](resources/segment-assignment.png)
 
+## Future Improvements:
+### 1.Integrate schema-migration tool or write one yourself.
 

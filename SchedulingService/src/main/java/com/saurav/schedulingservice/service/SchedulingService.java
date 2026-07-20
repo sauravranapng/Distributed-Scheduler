@@ -4,6 +4,7 @@ import com.saurav.schedulingservice.model.entity.TaskSchedule;
 import com.saurav.schedulingservice.model.event.AssignmentChangedEvent;
 import com.saurav.schedulingservice.model.event.JobExecutionEvent;
 import com.saurav.schedulingservice.repository.TaskScheduleRepository;
+import com.saurav.schedulingservice.util.ExecutionIdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class SchedulingService {
@@ -121,10 +123,15 @@ public class SchedulingService {
      */
     private void processTask(TaskSchedule taskSchedule) {
 
-        JobExecutionEvent event = new JobExecutionEvent(
-                taskSchedule.getUserId(),
-                taskSchedule.getKey().getJobId()
-        );
+        UUID executionId = ExecutionIdGenerator.generate(
+                taskSchedule.getKey().getJobId(),
+                taskSchedule.getKey().getNextExecutionTime());
+
+        JobExecutionEvent event = new JobExecutionEvent();
+        event.setExecutionId(executionId);
+        event.setJobId(taskSchedule.getKey().getJobId());
+        event.setUserId(taskSchedule.getUserId());
+        event.setScheduledExecutionTime(taskSchedule.getKey().getNextExecutionTime());
 
         kafkaTemplate.send(kafkaTopic,  event.getJobId().toString(),event)
                 .whenComplete((result, ex) -> {

@@ -16,10 +16,23 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class JobExecutionServiceImpl implements JobExecutionService {
 
+    private final ProcessedExecutionRepository processedExecutionRepository;
+
     private final JobRepository jobRepository;
 
     @Override
     public void execute(JobExecutionEvent event) {
+
+        boolean firstExecution =
+                processedExecutionRepository.tryAcquire(
+                        event.getExecutionId(),
+                        event.getJobId());
+
+        if (!firstExecution) {
+            log.info("Duplicate execution detected. executionId={}",
+                    event.getExecutionId());
+            return;
+        }
 
         JobPrimaryKey primaryKey = new JobPrimaryKey(
                 event.getUserId(),

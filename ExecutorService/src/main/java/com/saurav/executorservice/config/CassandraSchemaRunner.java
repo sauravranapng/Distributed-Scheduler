@@ -1,4 +1,4 @@
-package com.saurav.jobservice.config;
+package com.saurav.executorservice.config;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import jakarta.annotation.PostConstruct;
@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 
 @Component
 public class CassandraSchemaRunner {
-
     @Value("${app.cassandra.schema-script}")
     private String schemaScript;
 

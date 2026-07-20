@@ -39,3 +39,5 @@ datastax:
 app:
   kafka:
     topic: scheduling-topic
+  cassandra:
+      schema-script: db/migration/V1__init_schema.cql

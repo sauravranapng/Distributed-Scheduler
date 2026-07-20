@@ -11,3 +11,6 @@ spring:
 datastax:
   astra:
     secure-connect-bundle: ${SECURE_CONNECT_BUNDLE}
+app:
+  cassandra:
+    schema-script: db/migration/V1__init_schema.cql

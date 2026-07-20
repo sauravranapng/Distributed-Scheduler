@@ -12,6 +12,12 @@ import java.util.UUID;
 @AllArgsConstructor
 public class JobExecutionEvent {
 
+    private UUID executionId;
+
     private UUID userId;
+
     private UUID jobId;
+
+    private long scheduledExecutionTime;
+
 }

@@ -336,7 +336,8 @@ public class LeaderElectionService {
 
                 log.info("Assignments changed from {} to {}", previous, current);
 
-                eventPublisher.publishEvent(new AssignmentChangedEvent());            }
+                eventPublisher.publishEvent(new AssignmentChangedEvent());
+            }
 
             log.info("Updated local segment cache with data: {}", updatedAssignments);
         } catch (Exception e) {
