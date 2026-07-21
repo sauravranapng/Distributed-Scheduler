@@ -174,8 +174,6 @@ public class SchedulingService {
         long nextExecutionTime = taskSchedule.getKey().getNextExecutionTime()
                 + Duration.parse(taskSchedule.getInterval()).toMinutes();
 
-        taskScheduleRepository.delete(taskSchedule);
-
         TaskSchedule nextSchedule =
                 taskScheduleMapper.copyWithNextExecutionTime(
                         taskSchedule,
@@ -187,6 +185,9 @@ public class SchedulingService {
         logger.info("Rescheduled job {} for {}",
                 nextSchedule.getKey().getJobId(),
                 nextExecutionTime);
+
+        taskScheduleRepository.delete(taskSchedule);
+
     }
 
     /**

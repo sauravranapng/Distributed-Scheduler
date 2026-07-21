@@ -6,6 +6,7 @@ import com.saurav.executorservice.model.entity.Job;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.model.primarykey.JobPrimaryKey;
 import com.saurav.executorservice.repository.JobRepository;
+import com.saurav.executorservice.repository.ProcessedExecutionRepository;
 import com.saurav.executorservice.service.JobExecutionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
