@@ -173,3 +173,69 @@ Segment Assignments between multiple instances of schedulingService.
 ## Future Improvements:
 ### 1.Integrate schema-migration tool or write one yourself.
 
+
+
+## Fault tolerance design improvements:
+
+### Problem1: Once reassignment of segments occurs because of any instance crash before processing its complete records for that instant, the new instance will not immediately fetch record from the Db it will fetch at t+1.<br>
+Normal cron: poll for currentMinute.
+**Solution:**
+After assignment change:immediately poll for currentMinute.
+
+### Problem2: If re-assignment happens so close to the next minute that by the time the new instance fetches the records, the next minute has already started and the records for the previous minute are lost.<br>
+Let's say the currentMinute is 10:00 and the next minute is 10:01. If the instance crash happens at 10:00:52, zookeeper identify that the instance is crashed after 5 seconds then by the time the new instance fetches records,<br>
+it will be 10:01 and it will not fetch records for 10:00</br>
+Can not use <= currentMinute.In Cassandra, if next_execution_time is your partition key (or the first component of it), you cannot use an inequality predicate like <= or < on it in a standard query.<br>
+If you try to run a query that translates to SELECT * FROM jobs WHERE next_execution_time <= :currentMinute, Cassandra will explicitly reject it.<br>
+**Solution:**
+After Assignment change: poll for currentMinute and currentMinute-1.
+Need to use SpringEvents otherwise interaction between leaderElectionService and schedulerService will lead to circular dependency.<br>
+
+### Problem3: Once problem 1 solved then i need to tackle the problem of publishing duplicate record to Kafka for execution by new instance.<br>
+Which will occur if old instance has published particular task_schedule record to Kafka but crashed before deleting or re-scheduling it. <br>
+Then new instance will push it again because same entry is present in Db.</br>
+
+#### Solution:1  -- **Idempotent Execution with executionId in CassandraDB -- `Exactly-Once`** 
+Instead of trying to prevent duplicate publishes (which is surprisingly hard), I have made duplicate execution harmless by adding `executionId` to `JobExecutionEvent`.<br>
+where executionId will be generated from (JobId + next_execution_time) so that will be same for event having these two values.<br>
+Now ExecutorService can check if it has already executed a particular executionId and ignore it if it has. This way, even if the same job is published multiple times, it will only be executed once.
+**Criticism :** Duplicate execution only occurs in a tiny crash window and the maximum impact is one duplicate execution per crash.
+But the overhead in ExecutorService of checking in Db for executionId will be added to each and every request.
+
+#### Solution:2  -- **Idempotent Execution with In-Memory**
+I'm exploiting the fact that duplicates can only originate from a very small time window. A duplicate can only come from a scheduler crash while processing the current minute.<br>
+So duplicates can only be for:<br>
+1.current minute <br>
+2.maybe previous minute (depending on failover delay and your catch-up logic) <br>
+They cannot be for jobs from yesterday or even 10 minutes ago.<br>
+Suppose we keep executionId Cache with a TTL of 2 minutes.( NOt DB calls involved)<br>
+
+**Another refinement:**
+Since I already partition event by jobId , each executor only needs to remember execution IDs for the partitions it owns.<br>
+Worst Case:<br>
+567 executions/sec + 2-minute TTL => 567 × 120 ≈ 68,000 executionIds.<br>
+70k entries( of 16 bytes each) is on the order of a few megabytes, which is very manageable. ( 1MB to 8MB)<br>
+A cache of the last 2 minutes of execution IDs is likely tiny.<br>
+
+It won't provide `exactly-once` execution, but it can eliminate almost all duplicates caused by scheduler failover without any Cassandra round-trip.<br>
+Only chance of getting duplicate task_schedule executed is when scheduler fail and within 2 minutes frame Executor also fails and to the same one which is<br>
+consuming the same partition which contain the duplicate record. **---Very less likely--**<br>
+
+### Problem4:  What if the delete operation succeeds but not the insert one of update next_execution_time operation.<br>
+The problem is that future executions of a recurring job disappear.
+**Solution:**
+Insert first then delete instead of deleting first. And Since now we have executionId in JobExecutionEvent, even if the delete operation fails and the job is published again, it will be ignored by ExecutorService as it has already executed that executionId.
+
+### Problem5: Now because of solution of problem4 we can have 2 chain of execution of task_schedule.
+task_schedule-> 10:00: pushed into Kafka & inserted task_schedule-> 10:05 but crashed before deleting task_schedule-> 10:00. <br>
+Now for next Instance it will have task_schedule-> 10:00 , task_schedule-> 10:05 and both will have their chain if this was recurring task.<br>
+10:00->10:05->10:10->10:15->10:20 -----------
+10:05->10:10->10:15->10:20->10:25 -----------
+**Solution:**
+Since any task with TaskSchedulePrimaryKey(nextExecutionTime, segment, jobId) will be unique row in Cassandra so it won't <br>
+let it be inserted into again into Db. So there won't be any duplicate chains.
+
+
+
+
+
