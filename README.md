@@ -170,12 +170,12 @@ This prevents port conflicts when running multiple instances of the service, as 
 Segment Assignments between multiple instances of schedulingService.
 ![Segment Assignments](resources/segment-assignment.png)
 
-## Future Improvements:
+12 ## Future Improvements:
 ### 1.Integrate schema-migration tool or write one yourself.
 
 
 
-## Fault tolerance design improvements:
+## 13. Fault tolerance design improvements:
 
 ### Problem1: Once reassignment of segments occurs because of any instance crash before processing its complete records for that instant, the new instance will not immediately fetch record from the Db it will fetch at t+1.<br>
 Normal cron: poll for currentMinute.
@@ -202,7 +202,7 @@ Now ExecutorService can check if it has already executed a particular executionI
 **Criticism :** Duplicate execution only occurs in a tiny crash window and the maximum impact is one duplicate execution per crash.
 But the overhead in ExecutorService of checking in Db for executionId will be added to each and every request.
 
-#### Solution:2  -- **Idempotent Execution with In-Memory**
+#### Solution:2  -- **Idempotent Execution with In-Memory Cache**
 I'm exploiting the fact that duplicates can only originate from a very small time window. A duplicate can only come from a scheduler crash while processing the current minute.<br>
 So duplicates can only be for:<br>
 1.current minute <br>
@@ -236,6 +236,15 @@ Since any task with TaskSchedulePrimaryKey(nextExecutionTime, segment, jobId) wi
 let it be inserted into again into Db. So there won't be any duplicate chains.
 
 
+## 14. Retry Topics 
+Retry Topics are much better than `Thread.sleep(30_000);`--> sleeping consumers.
+Sleeping consumers:
+1. Waste Kafka consumer threads
+2. Reduce throughput
+3. Increase partition lag
 
+Using retry topics avoids all of that.
 
-
+### Avoid Job_table query during retries for examining retry count
+1. Every retry shouldn't query the database just to ask: "How many retries are allowed?" 
+2. So put `maxRetries` and `currentRetry` info inside Kafka Event to remove Db look-up.
