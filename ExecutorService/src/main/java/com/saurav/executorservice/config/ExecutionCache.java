@@ -18,6 +18,10 @@ public class ExecutionCache {
                     .build();
 
     public boolean tryAcquireExecution(UUID executionId) {
-        return cache.asMap().putIfAbsent(executionId, Boolean.TRUE) != null;
+        /*
+         Returns null if the key was not present (it inserts it).
+         Returns the existing value if the key was already present (it does not insert).
+         */
+        return cache.asMap().putIfAbsent(executionId, Boolean.TRUE) == null;
     }
 }

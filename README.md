@@ -247,8 +247,8 @@ Using retry topics avoids all of that.
 
 ### Avoid Job_table query during retries for examining retry count
 1. Every retry shouldn't query the database just to ask: "How many retries are allowed?" 
-2. So put `maxRetries` and `currentRetry` info inside Kafka Event to remove Db look-up.
-Now every retry simply increments `currentRetry++`
+2. So put `currentAttempt` and `maxAttempts` info inside Kafka Event to remove Db look-up.
+Now every retry simply increments `currentAttempt++`
 
 ### Incremental Retry topics
 1. task_retry_30s
