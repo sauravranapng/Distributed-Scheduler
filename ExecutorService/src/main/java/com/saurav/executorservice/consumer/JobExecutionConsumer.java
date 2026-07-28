@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.kafka.support.Acknowledgment;
+
 
 @Slf4j
 @Component
@@ -19,17 +21,23 @@ public class JobExecutionConsumer {
 
     @KafkaListener(
             topics = "${app.kafka.topic}",
-            groupId = "executor-service"
+            groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void consume(JobExecutionEvent event) {
+    public void consume(JobExecutionEvent event,Acknowledgment acknowledgment) {
 
-        log.info("Received JobExecutionEvent : {}", event);
+        log.info("Received executionId={}, jobId={}, userId={}",
+                event.getExecutionId(),
+                event.getJobId(),
+                event.getUserId());
 
         if (!executionCache.tryAcquireExecution(event.getExecutionId())) {
             log.info("Duplicate execution ignored: {}", event.getExecutionId());
+            acknowledgment.acknowledge();
             return;
         }
 
         jobExecutionService.execute(event);
+
+        acknowledgment.acknowledge();
     }
 }
