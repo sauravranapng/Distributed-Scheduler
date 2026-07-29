@@ -3,6 +3,8 @@ package com.saurav.executorservice.consumer;
 import com.saurav.executorservice.config.ExecutionCache;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.service.JobExecutionService;
+import com.saurav.executorservice.service.RetryPolicy;
+import com.saurav.executorservice.service.RetryPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -18,6 +20,11 @@ public class JobExecutionConsumer {
     private final ExecutionCache executionCache;
 
     private final JobExecutionService jobExecutionService;
+
+    private final RetryPublisher retryPublisher;
+
+    private final RetryPolicy retryPolicy;
+
 
     @KafkaListener(
             topics = "${app.kafka.topic}",
@@ -36,8 +43,24 @@ public class JobExecutionConsumer {
             return;
         }
 
-        jobExecutionService.execute(event);
+        try {
 
-        acknowledgment.acknowledge();
+            jobExecutionService.execute(event);
+
+            acknowledgment.acknowledge();
+
+        } catch (Exception ex) {
+
+            if (retryPolicy.shouldRetry(ex)) {
+
+                retryPublisher.publish(event, ex);
+
+                acknowledgment.acknowledge();
+
+                return;
+            }
+
+            throw ex;
+        }
     }
 }
