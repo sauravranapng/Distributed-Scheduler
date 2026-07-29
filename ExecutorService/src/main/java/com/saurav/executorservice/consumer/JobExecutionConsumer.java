@@ -53,7 +53,7 @@ public class JobExecutionConsumer {
 
             if (retryPolicy.shouldRetry(ex)) {
 
-                retryPublisher.publish(event, ex);
+                retryPublisher.publish(event, ex); //if it throws execution immediately exits the listener with No ACK --> Event will be redelivered.
 
                 acknowledgment.acknowledge();
 
