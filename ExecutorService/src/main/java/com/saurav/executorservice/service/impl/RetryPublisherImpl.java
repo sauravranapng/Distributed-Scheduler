@@ -2,10 +2,10 @@ package com.saurav.executorservice.service.impl;
 
 import com.saurav.executorservice.exception.RetryPublishException;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
+import com.saurav.executorservice.service.RetryPolicy;
 import com.saurav.executorservice.service.RetryPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,23 +15,31 @@ import org.springframework.stereotype.Service;
 public class RetryPublisherImpl implements RetryPublisher {
 
     private final KafkaTemplate<String, JobExecutionEvent> kafkaTemplate;
+    private final RetryPolicy retryPolicy;
 
-    @Value("${app.kafka.retry-topic}")
-    private String retryTopic;
 
     @Override
     public void publish(JobExecutionEvent event, Exception exception) {
+        JobExecutionEvent retryEvent = new JobExecutionEvent(
+                event.getExecutionId(),
+                event.getUserId(),
+                event.getJobId(),
+                event.getScheduledExecutionTime(),
+                event.getCurrentAttempt() + 1
+        );
+        String retryTopic = retryPolicy.getRetryTopic(retryEvent);
 
         try {
 
             kafkaTemplate.send(
                     retryTopic,
-                    event.getExecutionId().toString(),
-                    event
+                    retryEvent.getExecutionId().toString(),
+                    retryEvent
             ).get();   // <-- blocks
  //Without .get() producer buffer and immediately returns
-            log.info("Published retry event. executionId={}, topic={}",
-                    event.getExecutionId(),
+            log.info("Published retry attempt {} for executionId={} to topic={}",
+                    retryEvent.getCurrentAttempt(),
+                    retryEvent.getExecutionId(),
                     retryTopic);
 
         } catch (Exception ex) {

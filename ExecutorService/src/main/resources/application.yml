@@ -44,4 +44,11 @@ app:
   kafka:
     topic: scheduling-topic
   cassandra:
-      schema-script: db/migration/V1__init_schema.cql
+    schema-script: db/migration/V1__init_schema.cql
+  retry:
+    max-attempts: 3
+    topics:
+      1: execution-retry-1m
+      2: execution-retry-5m
+      3: execution-retry-30m
+      dlq: execution-dlq

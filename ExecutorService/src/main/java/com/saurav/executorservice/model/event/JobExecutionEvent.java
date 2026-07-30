@@ -21,10 +21,4 @@ public class JobExecutionEvent {
     private long scheduledExecutionTime;
 
     private int currentAttempt;
-
-    private int maxAttempts;
-
-    private long nextRetryDelay;
-
-    private boolean retryable;
 }
