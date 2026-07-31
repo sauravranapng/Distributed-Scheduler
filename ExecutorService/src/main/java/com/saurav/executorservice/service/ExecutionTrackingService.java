@@ -6,7 +6,7 @@ import com.saurav.executorservice.model.util.ExecutionContext;
 public interface ExecutionTrackingService {
 
 
-    ExecutionContext startExecution(JobExecutionEvent event);
+    ExecutionContext startExecution(JobExecutionEvent event , int attemptNumber);
 
     void completeExecution(ExecutionContext context);
 

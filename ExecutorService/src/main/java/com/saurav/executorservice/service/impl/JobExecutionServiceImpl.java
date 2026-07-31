@@ -8,8 +8,6 @@ import com.saurav.executorservice.model.util.ExecutionContext;
 import com.saurav.executorservice.repository.JobRepository;
 import com.saurav.executorservice.service.ExecutionTrackingService;
 import com.saurav.executorservice.service.JobExecutionService;
-import com.saurav.executorservice.service.RetryPolicy;
-import com.saurav.executorservice.service.RetryPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,9 +22,9 @@ public class JobExecutionServiceImpl implements JobExecutionService {
     private final ExecutionTrackingService executionTrackingService;
 
     @Override
-    public void execute(JobExecutionEvent event) {
+    public void execute(JobExecutionEvent event , int attemptNumber) {
         ExecutionContext context =
-                executionTrackingService.startExecution(event);
+                executionTrackingService.startExecution(event ,attemptNumber);
 
         try {
              /*

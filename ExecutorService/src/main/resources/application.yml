@@ -33,7 +33,7 @@ spring:
         spring.json.trusted.packages: "*"
         spring.json.value.default.type: com.saurav.executorservice.event.JobExecutionEvent
     listener:
-      ack-mode: manual_immediate
+      ack-mode: record
       concurrency: 1
 
 datastax:
@@ -45,10 +45,3 @@ app:
     topic: scheduling-topic
   cassandra:
     schema-script: db/migration/V1__init_schema.cql
-  retry:
-    max-attempts: 3
-    topics:
-      1: execution-retry-1m
-      2: execution-retry-5m
-      3: execution-retry-30m
-      dlq: execution-dlq

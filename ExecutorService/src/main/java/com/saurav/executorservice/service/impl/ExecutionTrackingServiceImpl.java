@@ -27,7 +27,7 @@ public class ExecutionTrackingServiceImpl implements ExecutionTrackingService {
     private final ExecutionAttemptRepository attemptRepository;
 
     @Override
-    public ExecutionContext startExecution(JobExecutionEvent event) {
+    public ExecutionContext startExecution(JobExecutionEvent event , int attemptNumber) {
 
         Instant now = Instant.now();
 
@@ -39,13 +39,13 @@ public class ExecutionTrackingServiceImpl implements ExecutionTrackingService {
                 .executionStatus(ExecutionStatus.RUNNING)
                 .startedAt(now)
                 .lastAttemptTime(now)
-                .totalAttempts(1)
+                .totalAttempts(attemptNumber)
                 .build();
 
         ExecutionAttempt attempt = ExecutionAttempt.builder()
                 .primaryKey(new ExecutionAttemptPrimaryKey(
                         event.getExecutionId(),
-                        1))
+                        attemptNumber))
                 .startedAt(now)
                 .executionStatus(ExecutionStatus.RUNNING)
                 .build();
