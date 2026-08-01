@@ -5,7 +5,6 @@ import com.saurav.executorservice.exception.JobNotFoundException;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.model.primarykey.JobPrimaryKey;
 import com.saurav.executorservice.model.util.ExecutionContext;
-import com.saurav.executorservice.repository.JobRepository;
 import com.saurav.executorservice.service.ExecutionTrackingService;
 import com.saurav.executorservice.service.JobExecutionService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class JobExecutionServiceImpl implements JobExecutionService {
 
-    private final JobRepository jobRepository;
 
     private final ExecutionTrackingService executionTrackingService;
 
@@ -35,8 +33,8 @@ public class JobExecutionServiceImpl implements JobExecutionService {
                     .jobId(event.getJobId())
                     .build();
 
-            jobRepository.findById(primaryKey)
-                    .orElseThrow(() -> new JobNotFoundException(primaryKey));
+            /*jobRepository.findById(primaryKey)
+                    .orElseThrow(() -> new JobNotFoundException(primaryKey));*/
 
             log.info("Executing job. executionId={}, jobId={}",
                     event.getExecutionId(),

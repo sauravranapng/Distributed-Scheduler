@@ -1,6 +1,7 @@
 package com.saurav.executorservice.model.event;
 
 
+import com.saurav.executorservice.model.enums.JobType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,5 +21,7 @@ public class JobExecutionEvent {
 
     private long scheduledExecutionTime;
 
-    private int currentAttempt;
+    private JobType jobType;
+
+    private String payload;
 }

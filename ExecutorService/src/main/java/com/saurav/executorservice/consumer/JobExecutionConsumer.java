@@ -15,7 +15,6 @@ import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
-import org.springframework.kafka.support.Acknowledgment;
 
 
 @Slf4j
