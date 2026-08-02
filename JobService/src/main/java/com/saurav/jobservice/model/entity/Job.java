@@ -1,6 +1,7 @@
 package com.saurav.jobservice.model.entity;
 
 
+import com.saurav.jobservice.model.enums.JobType;
 import com.saurav.jobservice.model.primarykey.JobPrimaryKey;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,20 +22,26 @@ public class Job {
         @PrimaryKey
         private JobPrimaryKey jobPrimaryKey;
 
-
         private boolean recurring;
 
-        @CassandraType(type = CassandraType.Name.TEXT)
-        private  String description;
+        private JobType jobType;
 
         @CassandraType(type = CassandraType.Name.TEXT)
-        private String interval;
+        private String payload;
 
-        @Column("max_retry_count")
-        private int maxRetryCount;
+        @CassandraType(type = CassandraType.Name.TEXT)
+        private Long intervalSeconds;
+
+        private Integer maxExecutions;
+
+        private Instant endTime;
 
         @Column("created_time")
         @CassandraType(type = CassandraType.Name.TIMESTAMP)
         private Instant createdTime; // Use TIMESTAMP for Instant
+
+        @Column("updated_time")
+        @CassandraType(type = CassandraType.Name.TIMESTAMP)
+        private Instant updatedTime;
 
 }

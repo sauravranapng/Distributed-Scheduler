@@ -1,6 +1,5 @@
 package com.saurav.executorservice.executor.impl;
 
-import com.saurav.executorservice.model.entity.Job;
 import com.saurav.executorservice.model.enums.JobType;
 
 import com.saurav.executorservice.executor.JobExecutor;
