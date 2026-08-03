@@ -1,7 +1,11 @@
 package com.saurav.jobservice.controller;
 
 import com.saurav.jobservice.model.dto.JobDto;
+import com.saurav.jobservice.model.dto.email.CreateEmailJobRequest;
+import com.saurav.jobservice.model.dto.http.CreateHttpJobRequest;
+import com.saurav.jobservice.model.response.JobResponse;
 import com.saurav.jobservice.service.JobService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.http.HttpStatus;
@@ -22,9 +26,24 @@ public class JobController {
         this.jobService = jobService;
     }
 
-    @PostMapping("/{user_id}/jobs")
-    public ResponseEntity<JobDto> createJob(@PathVariable("user_id") String userId, @RequestBody JobDto jobDto) {
-        return ResponseEntity.status(HttpStatus.OK).body(jobService.createJob(userId,jobDto));
+    @PostMapping("/{userId}/jobs/http")
+    public ResponseEntity<JobResponse> createHttpJob(
+            @PathVariable UUID userId,
+            @Valid @RequestBody CreateHttpJobRequest request) {
+
+        return ResponseEntity.ok(
+                jobService.createHttpJob(userId, request)
+        );
+    }
+
+    @PostMapping("/{userId}/jobs/email")
+    public ResponseEntity<JobResponse> createEmailJob(
+            @PathVariable UUID userId,
+            @Valid @RequestBody CreateEmailJobRequest request) {
+
+        return ResponseEntity.ok(
+                jobService.createEmailJob(userId, request)
+        );
     }
 
     @GetMapping("/{user_id}/jobs/{job_id}")

@@ -4,6 +4,7 @@ package com.saurav.jobservice.model.entity;
 import com.saurav.jobservice.model.enums.JobType;
 import com.saurav.jobservice.model.primarykey.JobPrimaryKey;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.cassandra.core.mapping.CassandraType;
@@ -14,6 +15,7 @@ import org.springframework.data.cassandra.core.mapping.Table;
 import java.time.Instant;
 
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Table("job_table")
@@ -30,7 +32,7 @@ public class Job {
         private String payload;
 
         @CassandraType(type = CassandraType.Name.TEXT)
-        private Long intervalSeconds;
+        private String interval;
 
         private Integer maxExecutions;
 
