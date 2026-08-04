@@ -8,22 +8,31 @@ import org.springframework.stereotype.Component;
 @Component
 public class TaskScheduleMapper {
 
-    public TaskSchedule toTaskSchedule(Job job,
-                                       long nextExecutionTime,
-                                       int segment) {
+    public TaskSchedule toTaskSchedule(
+            Job job,
+            long nextExecutionTime,
+            int segment) {
 
-        TaskSchedulePrimaryKey primaryKey =
-                new TaskSchedulePrimaryKey(
-                        nextExecutionTime,
-                        segment,
-                        job.getJobPrimaryKey().getJobId());
+        TaskSchedulePrimaryKey primaryKey = new TaskSchedulePrimaryKey(
+                nextExecutionTime,
+                segment,
+                job.getJobPrimaryKey().getJobId());
 
         TaskSchedule taskSchedule = new TaskSchedule();
 
         taskSchedule.setKey(primaryKey);
         taskSchedule.setUserId(job.getJobPrimaryKey().getUserId());
+
+        taskSchedule.setJobType(job.getJobType());
+        taskSchedule.setPayload(job.getPayload());
+
         taskSchedule.setRecurring(job.isRecurring());
         taskSchedule.setInterval(job.getInterval());
+
+        // Runtime state
+        taskSchedule.setRemainingExecutions(job.getMaxExecutions());
+
+        taskSchedule.setEndTime(job.getEndTime());
 
         return taskSchedule;
     }

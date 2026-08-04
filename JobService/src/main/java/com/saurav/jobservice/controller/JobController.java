@@ -1,8 +1,8 @@
 package com.saurav.jobservice.controller;
 
 import com.saurav.jobservice.model.dto.JobDto;
-import com.saurav.jobservice.model.dto.email.CreateEmailJobRequest;
-import com.saurav.jobservice.model.dto.http.CreateHttpJobRequest;
+import com.saurav.jobservice.model.request.CreateEmailJobRequest;
+import com.saurav.jobservice.model.request.CreateHttpJobRequest;
 import com.saurav.jobservice.model.response.JobResponse;
 import com.saurav.jobservice.service.JobService;
 import jakarta.validation.Valid;

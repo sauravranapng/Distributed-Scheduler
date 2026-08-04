@@ -14,6 +14,13 @@ import java.time.Instant;
 public abstract class ScheduleRequest {
 
     /**
+     * When the first execution should happen.
+     * Null = execute immediately.
+     * "2026-08-10T10:00:00Z"
+     */
+    private Instant startTime;
+
+    /**
      * Whether the job should execute repeatedly.
      */
     private boolean recurring;
@@ -43,6 +50,15 @@ public abstract class ScheduleRequest {
      * Null means no end time.
      */
     private Instant endTime;
+
+    /**
+     * Validation:
+     * Interval should exist for recurring jobs.
+     */
+    @AssertTrue(message = "Recurring jobs must specify an interval.")
+    public boolean isIntervalValid() {
+        return !recurring || interval != null;
+    }
 
     /**
      * Validation:

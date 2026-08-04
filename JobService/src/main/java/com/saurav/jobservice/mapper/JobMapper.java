@@ -1,48 +1,58 @@
 package com.saurav.jobservice.mapper;
 
 
-import com.saurav.jobservice.model.dto.JobDto;
 import com.saurav.jobservice.model.entity.Job;
-import com.saurav.jobservice.model.primarykey.JobDtoPrimaryKey;
+import com.saurav.jobservice.model.enums.JobType;
 import com.saurav.jobservice.model.primarykey.JobPrimaryKey;
+import com.saurav.jobservice.model.request.ScheduleRequest;
+import com.saurav.jobservice.model.response.JobResponse;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
 
 @Component
 public class JobMapper {
 
-    public JobDto toDto(Job job) {
-
-        JobDto dto = new JobDto();
-
-        dto.setJobDtoPrimaryKey(
-                new JobDtoPrimaryKey(
-                        job.getJobPrimaryKey().getUserId(),
-                        job.getJobPrimaryKey().getJobId()));
-
-        dto.setDescription(job.getDescription());
-        dto.setInterval(job.getInterval());
-        dto.setRecurring(job.isRecurring());
-        dto.setMaxRetryCount(job.getMaxRetryCount());
-        dto.setCreatedTime(job.getCreatedTime());
-
-        return dto;
-    }
-
-    public Job toEntity(JobDto dto) {
+    public Job toEntity(
+            JobPrimaryKey primaryKey,
+            JobType jobType,
+            String payload,
+            ScheduleRequest request,
+            Instant createdTime) {
 
         Job job = new Job();
 
-        job.setJobPrimaryKey(
-                new JobPrimaryKey(
-                        dto.getJobDtoPrimaryKey().getUserId(),
-                        dto.getJobDtoPrimaryKey().getJobId()));
+        job.setJobPrimaryKey(primaryKey);
+        job.setJobType(jobType);
+        job.setPayload(payload);
 
-        job.setDescription(dto.getDescription());
-        job.setInterval(dto.getInterval());
-        job.setRecurring(dto.isRecurring());
-        job.setMaxRetryCount(dto.getMaxRetryCount());
-        job.setCreatedTime(dto.getCreatedTime());
+        job.setRecurring(request.isRecurring());
+        job.setInterval(request.getInterval());
+        job.setMaxExecutions(request.getMaxExecutions());
+        job.setEndTime(request.getEndTime());
+
+        job.setCreatedTime(createdTime);
 
         return job;
+    }
+
+    public JobResponse toResponse(Job job) {
+
+        JobResponse response = new JobResponse();
+
+        response.setUserId(job.getJobPrimaryKey().getUserId());
+        response.setJobId(job.getJobPrimaryKey().getJobId());
+
+        response.setJobType(job.getJobType());
+
+        response.setRecurring(job.isRecurring());
+        response.setInterval(job.getInterval());
+
+        response.setMaxExecutions(job.getMaxExecutions());
+        response.setEndTime(job.getEndTime());
+
+        response.setCreatedTime(job.getCreatedTime());
+
+        return response;
     }
 }

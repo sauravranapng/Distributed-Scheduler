@@ -15,11 +15,19 @@ import java.util.UUID;
 @NoArgsConstructor
 public class JobResponse {
 
+    private UUID userId;
+
     private UUID jobId;
 
     private JobType jobType;
 
     private boolean recurring;
+
+    private String interval;
+
+    private Integer maxExecutions;
+
+    private Instant endTime;
 
     private Instant createdTime;
 }

@@ -1,6 +1,5 @@
 package com.saurav.jobservice.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.saurav.jobservice.exception.ResourceNotFoundException;
 import com.saurav.jobservice.mapper.JobMapper;
 import com.saurav.jobservice.mapper.TaskScheduleMapper;
@@ -11,9 +10,7 @@ import com.saurav.jobservice.model.enums.JobType;
 import com.saurav.jobservice.model.payload.EmailJobPayload;
 import com.saurav.jobservice.model.payload.HttpJobPayload;
 import com.saurav.jobservice.model.payload.JobPayload;
-import com.saurav.jobservice.model.primarykey.JobDtoPrimaryKey;
 import com.saurav.jobservice.model.primarykey.JobPrimaryKey;
-import com.saurav.jobservice.model.primarykey.TaskSchedulePrimaryKey;
 import com.saurav.jobservice.model.request.CreateEmailJobRequest;
 import com.saurav.jobservice.model.request.CreateHttpJobRequest;
 import com.saurav.jobservice.model.request.ScheduleRequest;
@@ -21,15 +18,12 @@ import com.saurav.jobservice.model.response.JobResponse;
 import com.saurav.jobservice.repository.JobRepository;
 import com.saurav.jobservice.repository.TaskScheduleRepository;
 import com.saurav.jobservice.service.JobService;
+import com.saurav.jobservice.util.JobServiceUtil;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-
-import static com.saurav.jobservice.util.JobServiceUtil.calculateSegment;
 
 @Service
 public class JobServiceImpl implements JobService {
@@ -85,34 +79,6 @@ public class JobServiceImpl implements JobService {
         );
     }
 
-   /* @Override
-    public JobDto createJob(String userId, JobDto jobDto) {
-
-        JobDtoPrimaryKey primaryKey = new JobDtoPrimaryKey();
-        primaryKey.setJobId(UUID.randomUUID());
-        primaryKey.setUserId(UUID.fromString(userId));
-        jobDto.setJobDtoPrimaryKey(primaryKey);
-        jobDto.setCreatedTime(Instant.now());
-
-        Job job = jobMapper.toEntity(jobDto);
-
-        long nextExecutionTime = Instant.now()
-                .plus(Duration.parse(job.getInterval()))
-                .getEpochSecond() / 60;
-
-        int segment = calculateSegment(job.getJobPrimaryKey().getJobId());
-
-        TaskSchedule taskSchedule = taskScheduleMapper.toTaskSchedule(
-                job,
-                nextExecutionTime,
-                segment
-        );
-
-        taskScheduleRepository.save(taskSchedule);
-
-        return jobMapper.toDto(jobRepository.save(job));
-    }*/
-
     // Method to retrieve a job by user ID and job ID
     @Override
     public JobDto getJob(String userId, String jobId) {
@@ -147,7 +113,6 @@ public class JobServiceImpl implements JobService {
                 .toList();
     }
 
-    @Transactional
     private JobResponse createJob(
             UUID userId,
             JobType jobType,
@@ -157,56 +122,43 @@ public class JobServiceImpl implements JobService {
         UUID jobId = UUID.randomUUID();
         Instant now = Instant.now();
 
-        String payloadJson;
+        String payloadJson = JobServiceUtil.serializePayload(payload);
 
-        try {
-            payloadJson = objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException ex) {
-            throw new PayloadSerializationException(
-                    "Failed to serialize job payload.",
-                    ex);
-        }
+        JobPrimaryKey primaryKey = new JobPrimaryKey(
+                userId,
+                jobId
+        );
 
-        Job job = Job.builder()
-                .jobPrimaryKey(new JobPrimaryKey(userId, jobId))
-                .jobType(jobType)
-                .payload(payloadJson)
-                .recurring(request.isRecurring())
-                .interval(request.getInterval())
-                .maxExecutions(request.getMaxExecutions())
-                .endTime(request.getEndTime())
-                .createdTime(now)
-                .build();
+        Job job = jobMapper.toEntity(
+                primaryKey,
+                jobType,
+                payloadJson,
+                request,
+                now
+        );
 
-        long nextExecutionTime = request.isRecurring()
-                ? now.plus(Duration.parse(request.getInterval()))
-                .getEpochSecond() / 60
-                : now.getEpochSecond() / 60;
+        long nextExecutionTime = JobServiceUtil.calculateNextExecutionTime(now, request);
 
-        int segment = calculateSegment(jobId);
+        int segment = JobServiceUtil.calculateSegment(jobId);
 
-        TaskSchedule taskSchedule = TaskSchedule.builder()
-                .key(new TaskSchedulePrimaryKey(
-                        nextExecutionTime,
-                        segment,
-                        jobId))
-                .userId(userId)
-                .jobType(jobType)
-                .payload(payloadJson)
-                .recurring(request.isRecurring())
-                .interval(request.getInterval())
-                .remainingExecutions(request.getMaxExecutions())
-                .endTime(request.getEndTime())
-                .build();
+        TaskSchedule taskSchedule = taskScheduleMapper.toTaskSchedule(
+                job,
+                nextExecutionTime,
+                segment
+        );
 
         jobRepository.save(job);
-        taskScheduleRepository.save(taskSchedule);
 
-        return JobResponse.builder()
-                .jobId(jobId)
-                .recurring(job.isRecurring())
-                .jobType(jobType)
-                .createdTime(now)
-                .build();
+        try {
+
+            taskScheduleRepository.save(taskSchedule);
+
+        } catch (Exception ex) {
+
+            jobRepository.deleteByJobPrimaryKey(job.getJobPrimaryKey());
+
+            throw ex;
+        }
+        return jobMapper.toResponse(job);
     }
 }
