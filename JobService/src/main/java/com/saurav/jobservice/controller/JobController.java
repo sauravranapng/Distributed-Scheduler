@@ -1,14 +1,14 @@
 package com.saurav.jobservice.controller;
 
-import com.saurav.jobservice.model.dto.JobDto;
 import com.saurav.jobservice.model.request.CreateEmailJobRequest;
 import com.saurav.jobservice.model.request.CreateHttpJobRequest;
+import com.saurav.jobservice.model.response.JobDetailsResponse;
 import com.saurav.jobservice.model.response.JobResponse;
+import com.saurav.jobservice.model.response.JobSummaryResponse;
+import com.saurav.jobservice.model.response.UpdateJobRequest;
 import com.saurav.jobservice.service.JobService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,30 +47,43 @@ public class JobController {
     }
 
     @GetMapping("/{user_id}/jobs/{job_id}")
-    public ResponseEntity<JobDto> getJob(@PathVariable("user_id") String userId, @PathVariable("job_id") String jobId) {
-        return ResponseEntity.status(HttpStatus.OK).body(jobService.getJob(userId,jobId));
+    public ResponseEntity<JobDetailsResponse> getJob(
+            @PathVariable("user_id") UUID userId,
+            @PathVariable("job_id") UUID jobId) {
+
+        return ResponseEntity.ok(
+                jobService.getJob(userId, jobId)
+        );
     }
 
     @PutMapping("/{user_id}/jobs/{job_id}")
-    public ResponseEntity<JobDto> updateJob(
-            @PathVariable("user_id") String userId,
-            @PathVariable("job_id") String jobId,
-            @RequestBody JobDto jobDto) {
-        JobDto updatedJob = jobService.updateJob(userId, jobId, jobDto);
-        return ResponseEntity.status(HttpStatus.OK).body(updatedJob);
+    public ResponseEntity<JobDetailsResponse> updateJob(
+            @PathVariable("user_id") UUID userId,
+            @PathVariable("job_id") UUID jobId,
+            @RequestBody UpdateJobRequest request) {
+
+        return ResponseEntity.ok(
+                jobService.updateJob(userId, jobId, request)
+        );
     }
 
     @DeleteMapping("/{user_id}/jobs/{job_id}")
-    public ResponseEntity<Void> deleteJob(@PathVariable("user_id") String userId, @PathVariable("job_id") String jobId) {
+    public ResponseEntity<Void> deleteJob(
+            @PathVariable("user_id") UUID userId,
+            @PathVariable("job_id") UUID jobId) {
+
         jobService.deleteJob(userId, jobId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{user_id}/jobs")
-    public ResponseEntity<List<JobDto>> getJobsByUser(
+    public ResponseEntity<List<JobSummaryResponse>> getJobsByUser(
             @PathVariable("user_id") UUID userId) {
 
-        return ResponseEntity.ok(jobService.getJobsByUser(userId));
+        return ResponseEntity.ok(
+                jobService.getJobsByUser(userId)
+        );
     }
 
 

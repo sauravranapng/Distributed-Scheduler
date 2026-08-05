@@ -29,12 +29,16 @@ public class Job {
         private JobType jobType;
 
         @CassandraType(type = CassandraType.Name.TEXT)
-        private String payload;
+        private String jobPayload;
 
         @CassandraType(type = CassandraType.Name.TEXT)
         private String interval;
 
         private Integer maxExecutions;
+
+        @Column("start_time")
+        @CassandraType(type = CassandraType.Name.TIMESTAMP)
+        private Instant startTime;
 
         private Instant endTime;
 

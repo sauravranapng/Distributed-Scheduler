@@ -1,6 +1,7 @@
 package com.saurav.jobservice.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.saurav.jobservice.exception.PayloadSerializationException;
 import com.saurav.jobservice.model.payload.JobPayload;
 import com.saurav.jobservice.model.request.ScheduleRequest;
 
