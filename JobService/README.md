@@ -63,3 +63,4 @@ These changes improved:
 `docker build -t distributed-scheduler/jobservice:1.0 .`
 2.Run the container:
 `docker run -p 8084:8084 -e SPRING_PROFILES_ACTIVE=local -e JAVA_OPTS="-Xms128m -Xmx256m" distributed-scheduler/jobservice:1.0`                         
+

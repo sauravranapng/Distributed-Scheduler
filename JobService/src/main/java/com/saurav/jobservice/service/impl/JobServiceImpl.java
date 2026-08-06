@@ -6,9 +6,11 @@ import com.saurav.jobservice.exception.PayloadDeserializationException;
 import com.saurav.jobservice.exception.PayloadSerializationException;
 import com.saurav.jobservice.exception.ResourceNotFoundException;
 import com.saurav.jobservice.mapper.JobMapper;
+import com.saurav.jobservice.mapper.ScheduleLookupMapper;
 import com.saurav.jobservice.mapper.TaskScheduleMapper;
 import com.saurav.jobservice.model.dto.JobDto;
 import com.saurav.jobservice.model.entity.Job;
+import com.saurav.jobservice.model.entity.ScheduleLookup;
 import com.saurav.jobservice.model.entity.TaskSchedule;
 import com.saurav.jobservice.model.enums.JobType;
 import com.saurav.jobservice.model.payload.EmailJobPayload;
@@ -26,10 +28,13 @@ import com.saurav.jobservice.model.response.JobResponse;
 import com.saurav.jobservice.model.response.JobSummaryResponse;
 import com.saurav.jobservice.model.response.UpdateJobRequest;
 import com.saurav.jobservice.repository.JobRepository;
+import com.saurav.jobservice.repository.ScheduleLookupRepository;
 import com.saurav.jobservice.repository.TaskScheduleRepository;
 import com.saurav.jobservice.service.JobService;
 import com.saurav.jobservice.util.JobServiceUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -39,20 +44,24 @@ import static com.saurav.jobservice.util.JobServiceUtil.calculateNextExecutionTi
 import static com.saurav.jobservice.util.JobServiceUtil.calculateSegment;
 
 @Service
+@Slf4j
 public class JobServiceImpl implements JobService {
     private final JobMapper jobMapper;
     private final TaskScheduleMapper taskScheduleMapper;
     private final JobRepository jobRepository;
     private final TaskScheduleRepository taskScheduleRepository;
     private final ObjectMapper objectMapper;
+    private final ScheduleLookupMapper scheduleLookupMapper;
+    private final ScheduleLookupRepository scheduleLookupRepository;
 
-
-    public JobServiceImpl(JobMapper jobMapper, TaskScheduleMapper taskScheduleMapper, JobRepository jobRepository , TaskScheduleRepository taskScheduleRepository, ObjectMapper objectMapper) {
+    public JobServiceImpl(JobMapper jobMapper, TaskScheduleMapper taskScheduleMapper, JobRepository jobRepository , TaskScheduleRepository taskScheduleRepository, ObjectMapper objectMapper, ScheduleLookupMapper scheduleLookupMapper, ScheduleLookupRepository scheduleLookupRepository) {
         this.jobMapper = jobMapper;
         this.taskScheduleMapper = taskScheduleMapper;
         this.jobRepository = jobRepository;
         this.taskScheduleRepository=taskScheduleRepository;
         this.objectMapper = objectMapper;
+        this.scheduleLookupMapper = scheduleLookupMapper;
+        this.scheduleLookupRepository = scheduleLookupRepository;
     }
 
     @Override
@@ -149,47 +158,18 @@ public class JobServiceImpl implements JobService {
                     jobId.toString());
         }
 
-        String payloadJson;
+        ScheduleLookup lookup = scheduleLookupRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Scheduled Job", "jobId", jobId.toString()));
 
-        try {
+        String payloadJson = JobServiceUtil.serializePayload(request);
 
-            JobType jobType = existingJob.getJobType();
+        TaskSchedulePrimaryKey oldPrimaryKey =
+                new TaskSchedulePrimaryKey(
+                        lookup.getNextExecutionTime(),
+                        lookup.getSegment(),
+                        jobId);
 
-            if (jobType == JobType.HTTP) {
-
-                UpdateHttpJobRequest httpRequest =
-                        (UpdateHttpJobRequest) request;
-
-                HttpJobPayload payload = HttpJobPayload.builder()
-                        .method(httpRequest.getMethod())
-                        .url(httpRequest.getUrl())
-                        .headers(httpRequest.getHeaders())
-                        .body(httpRequest.getBody())
-                        .timeoutSeconds(httpRequest.getTimeoutSeconds())
-                        .build();
-
-                payloadJson = objectMapper.writeValueAsString(payload);
-
-            } else {
-
-                UpdateEmailJobRequest emailRequest =
-                        (UpdateEmailJobRequest) request;
-
-                EmailJobPayload payload = EmailJobPayload.builder()
-                        .to(emailRequest.getTo())
-                        .subject(emailRequest.getSubject())
-                        .body(emailRequest.getBody())
-                        .build();
-
-                payloadJson = objectMapper.writeValueAsString(payload);
-            }
-
-        } catch (JsonProcessingException ex) {
-
-            throw new PayloadSerializationException(
-                    "Failed to serialize payload",
-                    ex);
-        }
+        taskScheduleRepository.deleteById(oldPrimaryKey);
 
         existingJob.setJobPayload(payloadJson);
         existingJob.setRecurring(request.isRecurring());
@@ -201,46 +181,66 @@ public class JobServiceImpl implements JobService {
 
         jobRepository.save(existingJob);
 
-        // Update TaskSchedule
         long nextExecutionTime =
                 calculateNextExecutionTime(
                         Instant.now(),
                         request);
 
-        TaskSchedule taskSchedule =
+        int segment = calculateSegment(jobId);
+
+        TaskSchedule newTaskSchedule =
                 taskScheduleMapper.toTaskSchedule(
                         existingJob,
                         nextExecutionTime,
-                        calculateSegment(jobId));
+                        segment);
 
-        taskScheduleRepository.save(taskSchedule);
+        taskScheduleRepository.save(newTaskSchedule);
+
+        lookup.setNextExecutionTime(nextExecutionTime);
+        lookup.setSegment(segment);
+
+        scheduleLookupRepository.save(lookup);
 
         return getJob(userId, jobId);
     }
 
     @Override
+    @Transactional
     public void deleteJob(
             UUID userId,
             UUID jobId) {
 
-        JobPrimaryKey primaryKey =
-                new JobPrimaryKey(userId, jobId);
+        JobPrimaryKey primaryKey = new JobPrimaryKey(userId, jobId);
 
         Job job = jobRepository.findByJobPrimaryKey(primaryKey);
 
         if (job == null) {
-            throw new ResourceNotFoundException("Job", "userId", "jobId", userId.toString(), jobId.toString());
+            throw new ResourceNotFoundException(
+                    "Job",
+                    "userId",
+                    "jobId",
+                    userId,
+                    jobId);
         }
 
-        jobRepository.delete(job);
+        ScheduleLookup scheduleLookup = scheduleLookupRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Job Schedule",
+                        "jobId",
+                        jobId));
 
         TaskSchedulePrimaryKey taskPrimaryKey =
                 new TaskSchedulePrimaryKey(
-                        calculateNextExecutionTime(job.getStartTime(), job),
-                        calculateSegment(jobId),
+                        scheduleLookup.getNextExecutionTime(),
+                        scheduleLookup.getSegment(),
                         jobId);
 
+        jobRepository.delete(job);
+
         taskScheduleRepository.deleteById(taskPrimaryKey);
+
+        scheduleLookupRepository.deleteById(jobId);
+
     }
 
     @Override
@@ -265,10 +265,7 @@ public class JobServiceImpl implements JobService {
 
         String payloadJson = JobServiceUtil.serializePayload(payload);
 
-        JobPrimaryKey primaryKey = new JobPrimaryKey(
-                userId,
-                jobId
-        );
+        JobPrimaryKey primaryKey = new JobPrimaryKey(userId, jobId);
 
         Job job = jobMapper.toEntity(
                 primaryKey,
@@ -288,18 +285,42 @@ public class JobServiceImpl implements JobService {
                 segment
         );
 
+        ScheduleLookup scheduleLookup =
+                scheduleLookupMapper.toEntity(
+                        jobId,
+                        nextExecutionTime,
+                        segment
+                );
+
         jobRepository.save(job);
 
         try {
-
             taskScheduleRepository.save(taskSchedule);
+            scheduleLookupRepository.save(scheduleLookup);
 
         } catch (Exception ex) {
 
-            jobRepository.deleteByJobPrimaryKey(job.getJobPrimaryKey());
+            rollbackJobCreation(job, taskSchedule);
 
             throw ex;
         }
         return jobMapper.toResponse(job);
+    }
+
+    private void rollbackJobCreation(Job job, TaskSchedule taskSchedule) {
+
+        try {
+            taskScheduleRepository.delete(taskSchedule);
+        } catch (Exception ex) {
+            log.error("Failed to rollback task schedule. jobId={}",
+                    job.getJobPrimaryKey().getJobId(), ex);
+        }
+
+        try {
+            jobRepository.deleteByJobPrimaryKey(job.getJobPrimaryKey());
+        } catch (Exception ex) {
+            log.error("Failed to rollback job. jobId={}",
+                    job.getJobPrimaryKey().getJobId(), ex);
+        }
     }
 }

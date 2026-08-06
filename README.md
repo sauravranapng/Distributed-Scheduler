@@ -235,24 +235,35 @@ Now for next Instance it will have task_schedule-> 10:00 , task_schedule-> 10:05
 Since any task with TaskSchedulePrimaryKey(nextExecutionTime, segment, jobId) will be unique row in Cassandra so it won't <br>
 let it be inserted into again into Db. So there won't be any duplicate chains.
 
+## Schedule Lookup Table
 
-## 14. Retry Topics 
-Retry Topics are much better than `Thread.sleep(30_000);`--> sleeping consumers.
-Sleeping consumers:
-1. Waste Kafka consumer threads
-2. Reduce throughput
-3. Increase partition lag
+The `task_schedule` table is optimized for the scheduler's hot path by partitioning on `(next_execution_time, segment)`, allowing efficient polling of due tasks. However, updating or deleting a scheduled job is difficult because Cassandra requires the complete primary key `(next_execution_time, segment, job_id)`, while the REST APIs only know the `job_id`.
 
-Using retry topics avoids all of that.
+To solve this, the scheduler maintains a lightweight `schedule_lookup` table:
 
-### Avoid Job_table query during retries for examining retry count
-1. Every retry shouldn't query the database just to ask: "How many retries are allowed?" 
-2. So put `currentAttempt` and `maxAttempts` info inside Kafka Event to remove Db look-up.
-Now every retry simply increments `currentAttempt++`
+| Partition Key | Columns |
+|---------------|---------|
+| `job_id` | `next_execution_time`, `segment` |
 
-### Incremental Retry topics
-1. task_retry_30s
-2. task_retry_2m
-3. task_retry_10m
-4. task_retry_1h
-As Kafka itself doesn't support delayed delivery.
+The lookup table is:
+
+- Created when a job is scheduled for the first time.
+- Updated whenever a recurring job is rescheduled.
+- Used by update/delete APIs to locate the current `task_schedule` entry in **O(1)** time.
+
+This design avoids expensive `ALLOW FILTERING`, secondary indexes, or full table scans while keeping the scheduler optimized for high-throughput polling.
+
+**Why not other approaches?**
+
+- **Quartz Scheduler** uses relational databases where triggers can be updated using SQL `UPDATE` statements. This approach is not suitable for Cassandra because primary keys are immutable.
+- **Redis-based schedulers** use Sorted Sets (`ZSET`), where schedules can be updated using `ZREM` and `ZADD`. Cassandra does not provide an equivalent data structure.
+- **Kafka delay queue schedulers** rely on delayed/cancellable messages instead of maintaining scheduling state. Apache Kafka does not natively support arbitrary delayed or cancellable messages.
+
+This separation allows each table to be optimized for a single access pattern:
+
+| Table | Responsibility |
+|-------|----------------|
+| `job_table` | Stores job configuration and payload |
+| `task_schedule` | Optimized for scheduler polling |
+| `schedule_lookup` | Fast lookup for update/delete operations |
+

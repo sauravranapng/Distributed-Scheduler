@@ -24,7 +24,7 @@ public class TaskScheduleMapper {
         taskSchedule.setUserId(job.getJobPrimaryKey().getUserId());
 
         taskSchedule.setJobType(job.getJobType());
-        taskSchedule.setPayload(job.getPayload());
+        taskSchedule.setPayload(job.getJobPayload());
 
         taskSchedule.setRecurring(job.isRecurring());
         taskSchedule.setInterval(job.getInterval());
