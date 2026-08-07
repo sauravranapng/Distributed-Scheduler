@@ -34,7 +34,6 @@ import com.saurav.jobservice.service.JobService;
 import com.saurav.jobservice.util.JobServiceUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -138,6 +137,7 @@ public class JobServiceImpl implements JobService {
             throw new PayloadDeserializationException("Unable to deserialize payload", ex);
         }
     }
+
     // Method to update an existing job (you can add more logic to update specific fields)
     @Override
     public JobDetailsResponse updateJob(
@@ -154,22 +154,42 @@ public class JobServiceImpl implements JobService {
                     "Job",
                     "userId",
                     "jobId",
-                    userId.toString(),
-                    jobId.toString());
+                    userId,
+                    jobId);
         }
 
-        ScheduleLookup lookup = scheduleLookupRepository.findById(jobId)
-                .orElseThrow(() -> new ResourceNotFoundException("Scheduled Job", "jobId", jobId.toString()));
+        ScheduleLookup existingLookup = scheduleLookupRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Scheduled Job",
+                        "jobId",
+                        jobId));
+
+        TaskSchedulePrimaryKey oldPrimaryKey = new TaskSchedulePrimaryKey(
+                existingLookup.getNextExecutionTime(),
+                existingLookup.getSegment(),
+                jobId);
+
+        TaskSchedule oldTaskSchedule = taskScheduleRepository.findById(oldPrimaryKey)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Task Schedule",
+                        "jobId",
+                        jobId));
+
+        // Keep a copy for rollback
+        Job oldJob = Job.builder()
+                .jobPrimaryKey(existingJob.getJobPrimaryKey())
+                .jobType(existingJob.getJobType())
+                .jobPayload(existingJob.getJobPayload())
+                .recurring(existingJob.isRecurring())
+                .interval(existingJob.getInterval())
+                .maxExecutions(existingJob.getMaxExecutions())
+                .startTime(existingJob.getStartTime())
+                .endTime(existingJob.getEndTime())
+                .createdTime(existingJob.getCreatedTime())
+                .updatedTime(existingJob.getUpdatedTime())
+                .build();
 
         String payloadJson = JobServiceUtil.serializePayload(request);
-
-        TaskSchedulePrimaryKey oldPrimaryKey =
-                new TaskSchedulePrimaryKey(
-                        lookup.getNextExecutionTime(),
-                        lookup.getSegment(),
-                        jobId);
-
-        taskScheduleRepository.deleteById(oldPrimaryKey);
 
         existingJob.setJobPayload(payloadJson);
         existingJob.setRecurring(request.isRecurring());
@@ -179,36 +199,84 @@ public class JobServiceImpl implements JobService {
         existingJob.setEndTime(request.getEndTime());
         existingJob.setUpdatedTime(Instant.now());
 
-        jobRepository.save(existingJob);
-
-        long nextExecutionTime =
-                calculateNextExecutionTime(
-                        Instant.now(),
-                        request);
-
+        long nextExecutionTime = calculateNextExecutionTime(Instant.now(), request);
         int segment = calculateSegment(jobId);
 
-        TaskSchedule newTaskSchedule =
-                taskScheduleMapper.toTaskSchedule(
-                        existingJob,
-                        nextExecutionTime,
-                        segment);
+        TaskSchedule newTaskSchedule = taskScheduleMapper.toTaskSchedule(
+                existingJob,
+                nextExecutionTime,
+                segment);
 
-        taskScheduleRepository.save(newTaskSchedule);
+        ScheduleLookup newLookup = ScheduleLookup.builder()
+                .jobId(jobId)
+                .nextExecutionTime(nextExecutionTime)
+                .segment(segment)
+                .build();
 
-        lookup.setNextExecutionTime(nextExecutionTime);
-        lookup.setSegment(segment);
+        try {
 
-        scheduleLookupRepository.save(lookup);
+            jobRepository.save(existingJob);
+            taskScheduleRepository.save(newTaskSchedule);
+            scheduleLookupRepository.save(newLookup);
 
-        return getJob(userId, jobId);
+            // Remove old schedule only after the new one exists
+            taskScheduleRepository.deleteById(oldPrimaryKey);
+
+            return getJob(userId, jobId);
+
+        } catch (Exception ex) {
+
+            rollbackJobUpdate(oldJob, oldTaskSchedule, existingLookup, newTaskSchedule, newLookup);
+
+            throw ex;
+        }
+    }
+
+    private void rollbackJobUpdate(
+            Job oldJob,
+            TaskSchedule oldTaskSchedule,
+            ScheduleLookup oldLookup,
+            TaskSchedule newTaskSchedule,
+            ScheduleLookup newLookup) {
+
+        try {
+            jobRepository.save(oldJob);
+        } catch (Exception rollbackEx) {
+            log.error("Failed to restore job {}",
+                    oldJob.getJobPrimaryKey().getJobId(), rollbackEx);
+        }
+
+        try {
+            taskScheduleRepository.delete(newTaskSchedule);
+        } catch (Exception rollbackEx) {
+            log.error("Failed to remove new task schedule {}",
+                    newTaskSchedule.getKey().getJobId(), rollbackEx);
+        }
+
+        try {
+            scheduleLookupRepository.deleteById(newLookup.getJobId());
+        } catch (Exception rollbackEx) {
+            log.error("Failed to remove new schedule lookup {}",
+                    newLookup.getJobId(), rollbackEx);
+        }
+
+        try {
+            taskScheduleRepository.save(oldTaskSchedule);
+        } catch (Exception rollbackEx) {
+            log.error("Failed to restore old task schedule {}",
+                    oldTaskSchedule.getKey().getJobId(), rollbackEx);
+        }
+
+        try {
+            scheduleLookupRepository.save(oldLookup);
+        } catch (Exception rollbackEx) {
+            log.error("Failed to restore old schedule lookup {}",
+                    oldLookup.getJobId(), rollbackEx);
+        }
     }
 
     @Override
-    @Transactional
-    public void deleteJob(
-            UUID userId,
-            UUID jobId) {
+    public void deleteJob(UUID userId, UUID jobId) {
 
         JobPrimaryKey primaryKey = new JobPrimaryKey(userId, jobId);
 
@@ -229,20 +297,58 @@ public class JobServiceImpl implements JobService {
                         "jobId",
                         jobId));
 
-        TaskSchedulePrimaryKey taskPrimaryKey =
-                new TaskSchedulePrimaryKey(
-                        scheduleLookup.getNextExecutionTime(),
-                        scheduleLookup.getSegment(),
-                        jobId);
+        TaskSchedulePrimaryKey taskPrimaryKey = new TaskSchedulePrimaryKey(
+                scheduleLookup.getNextExecutionTime(),
+                scheduleLookup.getSegment(),
+                jobId);
 
-        jobRepository.delete(job);
+        TaskSchedule taskSchedule = taskScheduleRepository.findById(taskPrimaryKey)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Task Schedule",
+                        "jobId",
+                        jobId));
 
-        taskScheduleRepository.deleteById(taskPrimaryKey);
+        try {
 
-        scheduleLookupRepository.deleteById(jobId);
+            // Stop future executions first
+            taskScheduleRepository.deleteById(taskPrimaryKey);
 
+            // Remove lookup metadata
+            scheduleLookupRepository.deleteById(jobId);
+
+            // Remove job configuration
+            jobRepository.delete(job);
+
+        } catch (Exception ex) {
+
+            rollbackJobDeletion(taskSchedule, scheduleLookup);
+
+            throw ex;
+        }
     }
 
+    private void rollbackJobDeletion(
+            TaskSchedule taskSchedule,
+            ScheduleLookup scheduleLookup) {
+
+        try {
+            taskScheduleRepository.save(taskSchedule);
+        } catch (Exception rollbackEx) {
+            log.error(
+                    "Failed to restore task_schedule for jobId={}",
+                    taskSchedule.getKey().getJobId(),
+                    rollbackEx);
+        }
+
+        try {
+            scheduleLookupRepository.save(scheduleLookup);
+        } catch (Exception rollbackEx) {
+            log.error(
+                    "Failed to restore schedule_lookup for jobId={}",
+                    scheduleLookup.getJobId(),
+                    rollbackEx);
+        }
+    }
     @Override
     public List<JobSummaryResponse> getJobsByUser(
             UUID userId) {

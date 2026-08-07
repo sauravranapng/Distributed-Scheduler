@@ -64,3 +64,10 @@ These changes improved:
 2.Run the container:
 `docker run -p 8084:8084 -e SPRING_PROFILES_ACTIVE=local -e JAVA_OPTS="-Xms128m -Xmx256m" distributed-scheduler/jobservice:1.0`                         
 
+## Cassandra does not provide multi-table transactions (hence used Saga-style compensating transactions)
+CreateJob(),deleteJob(), and updateJob() must be resilient, which means that if any of the operations fail, the system must be <br>
+able to recover gracefully without leaving the database in an inconsistent state. This can be achieved by implementing compensating<br>
+actions or using a saga pattern to manage distributed transactions across multiple tables.<br>
+
+I'm using rollbackJobCreation, rollbackJobUpdate, rollbackJobDeletion these methods implement a **Saga-style compensating transaction**<br>
+because Cassandra does not support atomic multi-table transactions.
