@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.Instant;
 
 @Data
@@ -92,5 +93,19 @@ public abstract class ScheduleRequest {
     @AssertTrue(message = "Non-recurring jobs should not specify endTime.")
     public boolean isEndTimeAllowedForOneTimeJobs() {
         return recurring || endTime == null;
+    }
+
+    @AssertTrue(message = "Interval must be at least 1 minute.")
+    public boolean isMinimumIntervalValid() {
+
+        if (!recurring || interval == null) {
+            return true;
+        }
+
+        try {
+            return !Duration.parse(interval).minusMinutes(1).isNegative();
+        } catch (Exception ex) {
+            return false;
+        }
     }
 }

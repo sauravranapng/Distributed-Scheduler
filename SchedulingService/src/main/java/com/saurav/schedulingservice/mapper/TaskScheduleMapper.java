@@ -7,8 +7,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class TaskScheduleMapper {
 
-    public TaskSchedule copyWithNextExecutionTime(TaskSchedule taskSchedule,
-                                                  long nextExecutionTime) {
+    public TaskSchedule copyWithNextExecutionTime(
+            TaskSchedule taskSchedule,
+            long nextExecutionTime,
+            Integer remainingExecutions) {
 
         TaskSchedulePrimaryKey primaryKey = new TaskSchedulePrimaryKey(
                 nextExecutionTime,
@@ -17,10 +19,15 @@ public class TaskScheduleMapper {
         );
 
         TaskSchedule nextTask = new TaskSchedule();
+
         nextTask.setKey(primaryKey);
         nextTask.setUserId(taskSchedule.getUserId());
+        nextTask.setJobType(taskSchedule.getJobType());
+        nextTask.setJobPayload(taskSchedule.getJobPayload());
         nextTask.setRecurring(taskSchedule.isRecurring());
         nextTask.setInterval(taskSchedule.getInterval());
+        nextTask.setRemainingExecutions(remainingExecutions);
+        nextTask.setEndTime(taskSchedule.getEndTime());
 
         return nextTask;
     }

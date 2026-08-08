@@ -1,15 +1,19 @@
 package com.saurav.schedulingservice.model.event;
 
 
+import com.saurav.schedulingservice.model.enums.JobType;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
-@NoArgsConstructor
+@Builder
 @AllArgsConstructor
+@NoArgsConstructor
 public class JobExecutionEvent {
 
     private UUID executionId;
@@ -18,6 +22,9 @@ public class JobExecutionEvent {
 
     private UUID jobId;
 
-    private long scheduledExecutionTime;
+    private JobType jobType;
 
+    private String jobPayload;
+
+    private Instant scheduledExecutionTime;
 }

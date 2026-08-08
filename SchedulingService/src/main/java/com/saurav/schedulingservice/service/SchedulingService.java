@@ -1,8 +1,10 @@
 package com.saurav.schedulingservice.service;
 import com.saurav.schedulingservice.mapper.TaskScheduleMapper;
+import com.saurav.schedulingservice.model.entity.ScheduleLookup;
 import com.saurav.schedulingservice.model.entity.TaskSchedule;
 import com.saurav.schedulingservice.model.event.AssignmentChangedEvent;
 import com.saurav.schedulingservice.model.event.JobExecutionEvent;
+import com.saurav.schedulingservice.repository.ScheduleLookupRepository;
 import com.saurav.schedulingservice.repository.TaskScheduleRepository;
 import com.saurav.schedulingservice.util.ExecutionIdGenerator;
 import org.slf4j.Logger;
@@ -25,6 +27,7 @@ public class SchedulingService {
     private final TaskScheduleMapper taskScheduleMapper;
     private final LeaderElectionService leaderElectionService;
     private final TaskScheduleRepository taskScheduleRepository;
+    private final ScheduleLookupRepository scheduleLookupRepository;
     private final KafkaTemplate<String, JobExecutionEvent> kafkaTemplate;
     private List<Integer> assignedSegments;
     @Value("${app.kafka.topic}")
@@ -33,10 +36,11 @@ public class SchedulingService {
 
     @Autowired
     public SchedulingService(TaskScheduleMapper taskScheduleMapper, LeaderElectionService leaderElectionService,
-                             TaskScheduleRepository taskScheduleRepository, KafkaTemplate<String, JobExecutionEvent> kafkaTemplate) {
+                             TaskScheduleRepository taskScheduleRepository, ScheduleLookupRepository scheduleLookupRepository, KafkaTemplate<String, JobExecutionEvent> kafkaTemplate) {
         this.taskScheduleMapper = taskScheduleMapper;
         this.leaderElectionService = leaderElectionService;
         this.taskScheduleRepository = taskScheduleRepository;
+        this.scheduleLookupRepository = scheduleLookupRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.assignedSegments = leaderElectionService.getAssignedSegmentsForCurrentInstance();
     }
@@ -114,80 +118,165 @@ public class SchedulingService {
         }
     }
 
-    /**
-     * Publishes a job execution event to Kafka and, upon successful publication,
-     * updates the task schedule for the next execution or removes it if it is
-     * a one-time job.
-     *
-     * @param taskSchedule the scheduled task to publish and process
-     */
     private void processTask(TaskSchedule taskSchedule) {
 
-        UUID executionId = ExecutionIdGenerator.generate(
-                taskSchedule.getKey().getJobId(),
-                taskSchedule.getKey().getNextExecutionTime());
+        UUID executionId = ExecutionIdGenerator.generate(taskSchedule.getKey().getJobId(), taskSchedule.getKey().getNextExecutionTime());
 
-        JobExecutionEvent event = new JobExecutionEvent();
-        event.setExecutionId(executionId);
-        event.setJobId(taskSchedule.getKey().getJobId());
-        event.setUserId(taskSchedule.getUserId());
-        event.setScheduledExecutionTime(taskSchedule.getKey().getNextExecutionTime());
+        JobExecutionEvent event = JobExecutionEvent.builder()
+                .executionId(executionId)
+                .jobId(taskSchedule.getKey().getJobId())
+                .userId(taskSchedule.getUserId())
+                .jobType(taskSchedule.getJobType())
+                .jobPayload(taskSchedule.getJobPayload())
+                .scheduledExecutionTime(
+                        Instant.ofEpochSecond(
+                                taskSchedule.getKey().getNextExecutionTime() * 60L))
+                .build();
 
-        kafkaTemplate.send(kafkaTopic,  event.getJobId().toString(),event)
+        kafkaTemplate.send(kafkaTopic, event.getJobId().toString(), event)
                 .whenComplete((result, ex) -> {
-
                     if (ex != null) {
-                        logger.error("Failed to publish JobExecutionEvent: {}", event, ex);
+                        logger.error("Failed to publish JobExecutionEvent. executionId={}, jobId={}", executionId, event.getJobId(), ex);
                         return;
                     }
-
-                    logger.info(
-                            "Published event for job {} to partition {} offset {}",
-                            event.getJobId(),
-                            result.getRecordMetadata().partition(),
-                            result.getRecordMetadata().offset());
+                    logger.info("Published job {} to partition {} offset {}", event.getJobId(), result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
 
                     rescheduleTask(taskSchedule);
-
                 });
     }
 
-    /**
-     * Updates the schedule of a processed task.
-     *
-     * <p>For one-time tasks, the schedule entry is removed. For recurring tasks,
-     * the current schedule is deleted and a new schedule is created using the
-     * configured execution interval.
-     *
-     * @param taskSchedule the processed task whose schedule should be updated
-     */
     private void rescheduleTask(TaskSchedule taskSchedule) {
 
-        if (!taskSchedule.isRecurring()) {
-            taskScheduleRepository.delete(taskSchedule);
+        UUID jobId = taskSchedule.getKey().getJobId();
 
-            logger.info("Removed one-time job {}",
-                    taskSchedule.getKey().getJobId());
+        // One-time job
+        if (!taskSchedule.isRecurring()) {
+
+            try {
+                taskScheduleRepository.delete(taskSchedule);
+                scheduleLookupRepository.deleteById(jobId);
+                logger.info("Removed one-time job {}", jobId);
+            } catch (Exception ex) {
+                rollbackOneTimeDeletion(taskSchedule);
+                throw ex;
+            }
             return;
         }
 
-        long nextExecutionTime = taskSchedule.getKey().getNextExecutionTime()
-                + Duration.parse(taskSchedule.getInterval()).toMinutes();
+        Integer remainingExecutions = taskSchedule.getRemainingExecutions();
+
+        if (remainingExecutions != null) {
+            remainingExecutions--;
+
+            if (remainingExecutions == 0) {
+
+                taskScheduleRepository.delete(taskSchedule);
+                scheduleLookupRepository.deleteById(jobId);
+
+                logger.info(
+                        "Completed recurring job {} after final execution",
+                        jobId);
+
+                return;
+            }
+        }
+
+        long nextExecutionTime =
+                taskSchedule.getKey().getNextExecutionTime()
+                        + Duration.parse(taskSchedule.getInterval()).toMinutes();
+
+        Instant nextExecutionInstant =
+                Instant.ofEpochSecond(nextExecutionTime * 60L);
+
+        if (taskSchedule.getEndTime() != null
+                && nextExecutionInstant.isAfter(taskSchedule.getEndTime())) {
+
+            taskScheduleRepository.delete(taskSchedule);
+            scheduleLookupRepository.deleteById(jobId);
+
+            logger.info("Stopped recurring job {} because endTime was reached", jobId);
+            return;
+        }
 
         TaskSchedule nextSchedule =
                 taskScheduleMapper.copyWithNextExecutionTime(
                         taskSchedule,
-                        nextExecutionTime
-                );
+                        nextExecutionTime,
+                        remainingExecutions);
 
-        taskScheduleRepository.save(nextSchedule);
+        ScheduleLookup newLookup = ScheduleLookup.builder()
+                .jobId(jobId)
+                .nextExecutionTime(nextExecutionTime)
+                .segment(nextSchedule.getKey().getSegment())
+                .build();
 
-        logger.info("Rescheduled job {} for {}",
-                nextSchedule.getKey().getJobId(),
-                nextExecutionTime);
+        ScheduleLookup oldLookup = ScheduleLookup.builder()
+                .jobId(jobId)
+                .nextExecutionTime(taskSchedule.getKey().getNextExecutionTime())
+                .segment(taskSchedule.getKey().getSegment())
+                .build();
 
-        taskScheduleRepository.delete(taskSchedule);
+        try {
 
+            // Step 1: create the new schedule
+            taskScheduleRepository.save(nextSchedule);
+
+            // Step 2: update lookup to point to the new schedule
+            scheduleLookupRepository.save(newLookup);
+
+            // Step 3: remove the old schedule
+            taskScheduleRepository.delete(taskSchedule);
+
+            logger.info(
+                    "Rescheduled job {} for {}",
+                    jobId,
+                    nextExecutionTime);
+
+        } catch (Exception ex) {
+
+            rollbackReschedule(
+                    taskSchedule,
+                    nextSchedule,
+                    oldLookup);
+
+            throw ex;
+        }
+    }
+
+    private void rollbackReschedule(
+            TaskSchedule oldSchedule,
+            TaskSchedule newSchedule,
+            ScheduleLookup oldLookup) {
+
+        // Remove the new schedule if it was created
+        try {
+            taskScheduleRepository.delete(newSchedule);
+        } catch (Exception rollbackEx) {
+            logger.error(
+                    "Failed to rollback new task schedule. jobId={}",
+                    oldSchedule.getKey().getJobId(),
+                    rollbackEx);
+        }
+
+        // Restore lookup to point to the old schedule
+        try {
+            scheduleLookupRepository.save(oldLookup);
+        } catch (Exception rollbackEx) {
+            logger.error(
+                    "Failed to restore schedule lookup. jobId={}",
+                    oldSchedule.getKey().getJobId(),
+                    rollbackEx);
+        }
+
+        // Restore the old schedule if it was deleted
+        try {
+            taskScheduleRepository.save(oldSchedule);
+        } catch (Exception rollbackEx) {
+            logger.error(
+                    "Failed to restore old task schedule. jobId={}",
+                    oldSchedule.getKey().getJobId(),
+                    rollbackEx);
+        }
     }
 
     /**
@@ -209,5 +298,22 @@ public class SchedulingService {
         processMinute(currentMinute);
     }
 
+    private void rollbackOneTimeDeletion(TaskSchedule taskSchedule) {
+
+        try {
+            taskScheduleRepository.save(taskSchedule);
+
+            logger.info(
+                    "Restored one-time task schedule. jobId={}",
+                    taskSchedule.getKey().getJobId());
+
+        } catch (Exception ex) {
+
+            logger.error(
+                    "Failed to rollback one-time task deletion. jobId={}",
+                    taskSchedule.getKey().getJobId(),
+                    ex);
+        }
+    }
 }
 
