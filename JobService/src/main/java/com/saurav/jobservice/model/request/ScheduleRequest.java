@@ -1,6 +1,7 @@
 package com.saurav.jobservice.model.request;
 
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,7 +17,6 @@ public abstract class ScheduleRequest {
     /**
      * When the first execution should happen.
      * Null = execute immediately.
-     * "2026-08-10T10:00:00Z"
      */
     private Instant startTime;
 
@@ -27,11 +27,6 @@ public abstract class ScheduleRequest {
 
     /**
      * ISO-8601 Duration.
-     * Examples:
-     * PT30S
-     * PT5M
-     * PT1H
-     * P1D
      */
     @Pattern(
             regexp = "^P.*",
@@ -43,17 +38,16 @@ public abstract class ScheduleRequest {
      * Maximum number of executions.
      * Null means unlimited executions.
      */
+    @Min(value = 1, message = "maxExecutions must be at least 1.")
     private Integer maxExecutions;
 
     /**
      * Stop scheduling after this time.
-     * Null means no end time.
      */
     private Instant endTime;
 
     /**
-     * Validation:
-     * Interval should exist for recurring jobs.
+     * Recurring jobs must specify an interval.
      */
     @AssertTrue(message = "Recurring jobs must specify an interval.")
     public boolean isIntervalValid() {
@@ -61,17 +55,42 @@ public abstract class ScheduleRequest {
     }
 
     /**
-     * Validation:
-     * At least one scheduling termination strategy should exist
-     * for recurring jobs.
+     * Recurring jobs must specify either maxExecutions or endTime.
      */
     @AssertTrue(message = "Recurring jobs must specify maxExecutions or endTime.")
     public boolean isValidRecurringConfiguration() {
+        return !recurring || maxExecutions != null || endTime != null;
+    }
 
-        if (!recurring) {
-            return true;
-        }
+    /**
+     * endTime must be after startTime.
+     */
+    @AssertTrue(message = "endTime must be after startTime.")
+    public boolean isEndTimeAfterStartTime() {
+        return startTime == null || endTime == null || endTime.isAfter(startTime);
+    }
 
-        return maxExecutions != null || endTime != null;
+    /**
+     * Non-recurring jobs should not specify an interval.
+     */
+    @AssertTrue(message = "Non-recurring jobs should not specify an interval.")
+    public boolean isIntervalAllowedForOneTimeJobs() {
+        return recurring || interval == null;
+    }
+
+    /**
+     * Non-recurring jobs should not specify maxExecutions.
+     */
+    @AssertTrue(message = "Non-recurring jobs should not specify maxExecutions.")
+    public boolean isMaxExecutionsAllowedForOneTimeJobs() {
+        return recurring || maxExecutions == null;
+    }
+
+    /**
+     * Non-recurring jobs should not specify endTime.
+     */
+    @AssertTrue(message = "Non-recurring jobs should not specify endTime.")
+    public boolean isEndTimeAllowedForOneTimeJobs() {
+        return recurring || endTime == null;
     }
 }

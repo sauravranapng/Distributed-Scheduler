@@ -3,12 +3,10 @@ package com.saurav.jobservice.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saurav.jobservice.exception.PayloadDeserializationException;
-import com.saurav.jobservice.exception.PayloadSerializationException;
 import com.saurav.jobservice.exception.ResourceNotFoundException;
 import com.saurav.jobservice.mapper.JobMapper;
 import com.saurav.jobservice.mapper.ScheduleLookupMapper;
 import com.saurav.jobservice.mapper.TaskScheduleMapper;
-import com.saurav.jobservice.model.dto.JobDto;
 import com.saurav.jobservice.model.entity.Job;
 import com.saurav.jobservice.model.entity.ScheduleLookup;
 import com.saurav.jobservice.model.entity.TaskSchedule;
@@ -21,8 +19,6 @@ import com.saurav.jobservice.model.primarykey.TaskSchedulePrimaryKey;
 import com.saurav.jobservice.model.request.CreateEmailJobRequest;
 import com.saurav.jobservice.model.request.CreateHttpJobRequest;
 import com.saurav.jobservice.model.request.ScheduleRequest;
-import com.saurav.jobservice.model.request.UpdateEmailJobRequest;
-import com.saurav.jobservice.model.request.UpdateHttpJobRequest;
 import com.saurav.jobservice.model.response.JobDetailsResponse;
 import com.saurav.jobservice.model.response.JobResponse;
 import com.saurav.jobservice.model.response.JobSummaryResponse;
@@ -334,37 +330,26 @@ public class JobServiceImpl implements JobService {
         try {
             taskScheduleRepository.save(taskSchedule);
         } catch (Exception rollbackEx) {
-            log.error(
-                    "Failed to restore task_schedule for jobId={}",
-                    taskSchedule.getKey().getJobId(),
-                    rollbackEx);
+            log.error("Failed to restore task_schedule for jobId={}", taskSchedule.getKey().getJobId(), rollbackEx);
         }
 
         try {
             scheduleLookupRepository.save(scheduleLookup);
         } catch (Exception rollbackEx) {
-            log.error(
-                    "Failed to restore schedule_lookup for jobId={}",
-                    scheduleLookup.getJobId(),
-                    rollbackEx);
+            log.error("Failed to restore schedule_lookup for jobId={}", scheduleLookup.getJobId(), rollbackEx);
         }
     }
     @Override
     public List<JobSummaryResponse> getJobsByUser(
             UUID userId) {
 
-        return jobRepository
-                .findByJobPrimaryKeyUserId(userId)
+        return jobRepository.findByJobPrimaryKeyUserId(userId)
                 .stream()
                 .map(jobMapper::toJobSummaryResponse)
                 .toList();
     }
 
-    private JobResponse createJob(
-            UUID userId,
-            JobType jobType,
-            JobPayload payload,
-            ScheduleRequest request) {
+    private JobResponse createJob(UUID userId, JobType jobType, JobPayload payload, ScheduleRequest request) {
 
         UUID jobId = UUID.randomUUID();
         Instant now = Instant.now();
@@ -373,60 +358,52 @@ public class JobServiceImpl implements JobService {
 
         JobPrimaryKey primaryKey = new JobPrimaryKey(userId, jobId);
 
-        Job job = jobMapper.toEntity(
-                primaryKey,
-                jobType,
-                payloadJson,
-                request,
-                now
-        );
+        Job job = jobMapper.toEntity(primaryKey, jobType, payloadJson, request, now);
 
         long nextExecutionTime = calculateNextExecutionTime(now, request);
 
         int segment = calculateSegment(jobId);
 
-        TaskSchedule taskSchedule = taskScheduleMapper.toTaskSchedule(
-                job,
-                nextExecutionTime,
-                segment
-        );
+        TaskSchedule taskSchedule = taskScheduleMapper.toTaskSchedule(job, nextExecutionTime, segment);
 
-        ScheduleLookup scheduleLookup =
-                scheduleLookupMapper.toEntity(
-                        jobId,
-                        nextExecutionTime,
-                        segment
-                );
-
-        jobRepository.save(job);
+        ScheduleLookup scheduleLookup = scheduleLookupMapper.toEntity(jobId, nextExecutionTime, segment);
 
         try {
+
+            jobRepository.save(job);
+
             taskScheduleRepository.save(taskSchedule);
+
             scheduleLookupRepository.save(scheduleLookup);
+
+            return jobMapper.toResponse(job);
 
         } catch (Exception ex) {
 
-            rollbackJobCreation(job, taskSchedule);
+            rollbackJobCreation(job, taskSchedule, scheduleLookup);
 
             throw ex;
         }
-        return jobMapper.toResponse(job);
     }
 
-    private void rollbackJobCreation(Job job, TaskSchedule taskSchedule) {
+    private void rollbackJobCreation(Job job, TaskSchedule taskSchedule, ScheduleLookup scheduleLookup) {
+
+        try {
+            scheduleLookupRepository.deleteById(scheduleLookup.getJobId());
+        } catch (Exception ex) {
+            log.error("Failed to rollback schedule lookup. jobId={}", scheduleLookup.getJobId(), ex);
+        }
 
         try {
             taskScheduleRepository.delete(taskSchedule);
         } catch (Exception ex) {
-            log.error("Failed to rollback task schedule. jobId={}",
-                    job.getJobPrimaryKey().getJobId(), ex);
+            log.error("Failed to rollback task schedule. jobId={}", job.getJobPrimaryKey().getJobId(), ex);
         }
 
         try {
             jobRepository.deleteByJobPrimaryKey(job.getJobPrimaryKey());
         } catch (Exception ex) {
-            log.error("Failed to rollback job. jobId={}",
-                    job.getJobPrimaryKey().getJobId(), ex);
+            log.error("Failed to rollback job. jobId={}", job.getJobPrimaryKey().getJobId(), ex);
         }
     }
 }

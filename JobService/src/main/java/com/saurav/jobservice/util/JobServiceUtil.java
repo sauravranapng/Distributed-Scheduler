@@ -12,6 +12,7 @@ import com.saurav.jobservice.model.request.UpdateEmailJobRequest;
 import com.saurav.jobservice.model.request.UpdateHttpJobRequest;
 import com.saurav.jobservice.model.response.UpdateJobRequest;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -73,12 +74,33 @@ public class JobServiceUtil {
             Instant now,
             ScheduleRequest request) {
 
-        Instant firstExecutionTime = request.getStartTime();
+        Instant startTime = request.getStartTime();
 
-        if (firstExecutionTime == null) {
-            firstExecutionTime = now;
+        if (startTime == null) {
+            startTime = now;
         }
 
-        return firstExecutionTime.getEpochSecond() / 60;
+        // One-time job
+        if (!request.isRecurring()) {
+            return startTime.getEpochSecond() / 60;
+        }
+
+        Duration interval = Duration.parse(request.getInterval());
+
+        // Start time is in the future
+        if (!startTime.isBefore(now)) {
+            return startTime.getEpochSecond() / 60;
+        }
+
+        long intervalSeconds = interval.getSeconds();
+        long elapsedSeconds = Duration.between(startTime, now).getSeconds();
+
+        long intervalsPassed =
+                (elapsedSeconds + intervalSeconds - 1) / intervalSeconds;
+
+        Instant nextExecution =
+                startTime.plusSeconds(intervalsPassed * intervalSeconds);
+
+        return nextExecution.getEpochSecond() / 60;
     }
 }
