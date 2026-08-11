@@ -1,10 +1,8 @@
 package com.saurav.executorservice.consumer;
 
 import com.saurav.executorservice.config.ExecutionCache;
-import com.saurav.executorservice.exception.JobNotFoundException;
 import com.saurav.executorservice.exception.RetryableExecutionException;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
-import com.saurav.executorservice.service.ExecutionTrackingService;
 import com.saurav.executorservice.service.JobExecutionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,9 +64,7 @@ public class JobExecutionConsumer {
     @DltHandler
     public void handleDeadLetter(JobExecutionEvent event) {
 
-        log.error("Retries exhausted. executionId={}, jobId={}",
-                event.getExecutionId(),
-                event.getJobId());
+        log.error("Retries exhausted. executionId={}, jobId={}", event.getExecutionId(), event.getJobId());
 
     }
 }

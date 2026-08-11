@@ -1,4 +1,7 @@
 package com.saurav.executorservice.exception;
 
-public class PayloadDeserializationException {
+public class PayloadDeserializationException extends RuntimeException {
+        public PayloadDeserializationException(String message ,Throwable cause ) {
+            super(message,cause);
+        }
 }

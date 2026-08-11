@@ -14,6 +14,9 @@ public class JobExecutorFactoryImpl implements JobExecutorFactory {
     private final Map<JobType, JobExecutor> executors =
             new EnumMap<>(JobType.class);
 
+    /*
+    jobExecutors will be inserted into executors Map automatically
+     */
     public JobExecutorFactoryImpl(List<JobExecutor> jobExecutors) {
 
         for (JobExecutor executor : jobExecutors) {

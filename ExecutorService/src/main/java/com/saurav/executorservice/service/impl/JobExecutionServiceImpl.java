@@ -1,9 +1,9 @@
 package com.saurav.executorservice.service.impl;
 
 
-import com.saurav.executorservice.exception.JobNotFoundException;
+import com.saurav.executorservice.executor.JobExecutor;
+import com.saurav.executorservice.executor.factory.JobExecutorFactory;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
-import com.saurav.executorservice.model.primarykey.JobPrimaryKey;
 import com.saurav.executorservice.model.util.ExecutionContext;
 import com.saurav.executorservice.service.ExecutionTrackingService;
 import com.saurav.executorservice.service.JobExecutionService;
@@ -18,6 +18,7 @@ public class JobExecutionServiceImpl implements JobExecutionService {
 
 
     private final ExecutionTrackingService executionTrackingService;
+    private final JobExecutorFactory jobExecutorFactory;
 
     @Override
     public void execute(JobExecutionEvent event , int attemptNumber) {
@@ -25,30 +26,28 @@ public class JobExecutionServiceImpl implements JobExecutionService {
                 executionTrackingService.startExecution(event ,attemptNumber);
 
         try {
-             /*
-             I will add here call to execution method which will actually execute
-              */
-            JobPrimaryKey primaryKey = JobPrimaryKey.builder()
-                    .userId(event.getUserId())
-                    .jobId(event.getJobId())
-                    .build();
 
-            /*jobRepository.findById(primaryKey)
-                    .orElseThrow(() -> new JobNotFoundException(primaryKey));*/
+            JobExecutor executor =
+                    jobExecutorFactory.getExecutor(event.getJobType());
 
-            log.info("Executing job. executionId={}, jobId={}",
-                    event.getExecutionId(),
-                    event.getJobId());
+            executor.execute(event);
 
             executionTrackingService.completeExecution(context);
 
+            log.info(
+                    "Job executed successfully. executionId={}, jobId={}",
+                    event.getExecutionId(),
+                    event.getJobId());
+
         } catch (Exception ex) {
-            log.error("Job execution failed. executionId={}, jobId={}",
+
+            executionTrackingService.failExecution(context, ex);
+
+            log.error(
+                    "Job execution failed. executionId={}, jobId={}",
                     event.getExecutionId(),
                     event.getJobId(),
                     ex);
-
-            executionTrackingService.failExecution(context, ex);
 
             throw ex;
         }
