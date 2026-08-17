@@ -10,5 +10,4 @@ public class HttpClientConfig {
     public RestClient restClient() {
         return RestClient.builder().build();
     }
-git comm
 }

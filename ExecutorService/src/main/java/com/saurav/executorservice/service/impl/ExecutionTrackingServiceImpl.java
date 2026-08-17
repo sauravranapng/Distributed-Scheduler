@@ -11,6 +11,10 @@ import com.saurav.executorservice.repository.ExecutionHistoryRepository;
 import com.saurav.executorservice.service.ExecutionTrackingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.cassandra.core.CassandraTemplate;
+import org.springframework.data.cassandra.core.EntityWriteResult;
+import org.springframework.data.cassandra.core.InsertOptions;
+import org.springframework.data.cassandra.core.WriteResult;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -26,38 +30,58 @@ public class ExecutionTrackingServiceImpl implements ExecutionTrackingService {
 
     private final ExecutionAttemptRepository attemptRepository;
 
+    private final CassandraTemplate cassandraTemplate;
+
     @Override
-    public ExecutionContext startExecution(JobExecutionEvent event , int attemptNumber) {
+    public ExecutionContext startExecution(
+            JobExecutionEvent event,
+            int attemptNumber) {
 
         Instant now = Instant.now();
+
+        ExecutionAttempt attempt = ExecutionAttempt.builder()
+                .primaryKey(
+                        new ExecutionAttemptPrimaryKey(
+                                event.getExecutionId(),
+                                attemptNumber))
+                .startedAt(now)
+                .executionStatus(ExecutionStatus.RUNNING)
+                .build();
+
+        EntityWriteResult<ExecutionAttempt> result =
+                cassandraTemplate.insert(
+                        attempt,
+                        InsertOptions.builder()
+                                .withIfNotExists()
+                                .build());
+
+        if (!result.wasApplied()) {
+
+            log.info(
+                    "Duplicate execution attempt ignored. executionId={}, attempt={}",
+                    event.getExecutionId(),
+                    attemptNumber);
+
+            return null;
+        }
 
         ExecutionHistory history = ExecutionHistory.builder()
                 .executionId(event.getExecutionId())
                 .jobId(event.getJobId())
                 .userId(event.getUserId())
-                .scheduledExecutionTime(event.getScheduledExecutionTime())
+                .scheduledExecutionTime(event.getScheduledExecutionTime().getEpochSecond() / 60)
                 .executionStatus(ExecutionStatus.RUNNING)
                 .startedAt(now)
                 .lastAttemptTime(now)
                 .totalAttempts(attemptNumber)
                 .build();
 
-        ExecutionAttempt attempt = ExecutionAttempt.builder()
-                .primaryKey(new ExecutionAttemptPrimaryKey(
-                        event.getExecutionId(),
-                        attemptNumber))
-                .startedAt(now)
-                .executionStatus(ExecutionStatus.RUNNING)
-                .build();
+        historyRepository.save(history);
 
-        ExecutionContext context = ExecutionContext.builder()
+        return ExecutionContext.builder()
                 .executionHistory(history)
                 .executionAttempt(attempt)
                 .build();
-
-        persist(context);
-
-        return context;
     }
 
     @Override

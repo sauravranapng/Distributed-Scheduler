@@ -23,7 +23,19 @@ public class JobExecutionServiceImpl implements JobExecutionService {
     @Override
     public void execute(JobExecutionEvent event , int attemptNumber) {
         ExecutionContext context =
-                executionTrackingService.startExecution(event ,attemptNumber);
+                executionTrackingService.startExecution(
+                        event,
+                        attemptNumber);
+
+        // Duplicate delivery of the same Kafka attempt
+        if (context == null) {
+            log.info(
+                    "Duplicate execution attempt ignored. executionId={}, attempt={}",
+                    event.getExecutionId(),
+                    attemptNumber);
+            return;
+        }
+
 
         try {
 

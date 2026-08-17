@@ -1,6 +1,5 @@
 package com.saurav.executorservice.consumer;
 
-import com.saurav.executorservice.config.ExecutionCache;
 import com.saurav.executorservice.exception.RetryableExecutionException;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.service.JobExecutionService;
@@ -46,11 +45,6 @@ public class JobExecutionConsumer {
     public void consume(JobExecutionEvent event, @Header(KafkaHeaders.DELIVERY_ATTEMPT) int attempt) {
 
         log.info("Received executionId={}, jobId={}, userId={}", event.getExecutionId(), event.getJobId(), event.getUserId());
-
-        if (!executionCache.tryAcquireExecution(event.getExecutionId(),attempt)) {
-            log.info("Duplicate execution ignored: {}", event.getExecutionId());
-            return;
-        }
 
         jobExecutionService.execute(event,attempt);
 
