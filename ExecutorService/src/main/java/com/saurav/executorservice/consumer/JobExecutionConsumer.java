@@ -19,7 +19,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class JobExecutionConsumer {
 
-    private final ExecutionCache executionCache;
 
     private final JobExecutionService jobExecutionService;
 

@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS task_execution_attempt (
 
                                                       error_message TEXT,
 
+                                                      lease_until timestamp,
+
                                                       PRIMARY KEY ((execution_id), attempt_number)
 
 ) WITH CLUSTERING ORDER BY (attempt_number ASC);

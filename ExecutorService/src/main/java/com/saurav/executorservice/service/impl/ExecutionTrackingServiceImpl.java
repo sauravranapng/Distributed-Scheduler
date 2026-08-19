@@ -1,5 +1,6 @@
 package com.saurav.executorservice.service.impl;
 
+import com.saurav.executorservice.exception.RetryableExecutionException;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.model.entity.ExecutionAttempt;
 import com.saurav.executorservice.model.primarykey.ExecutionAttemptPrimaryKey;
@@ -17,7 +18,9 @@ import org.springframework.data.cassandra.core.InsertOptions;
 import org.springframework.data.cassandra.core.WriteResult;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,8 @@ import java.time.Instant;
 public class ExecutionTrackingServiceImpl implements ExecutionTrackingService {
 
     private static final int INITIAL_ATTEMPT = 1;
+
+    private static final Duration EXECUTION_LEASE = Duration.ofMinutes(2);
 
     private final ExecutionHistoryRepository historyRepository;
 
@@ -39,44 +44,161 @@ public class ExecutionTrackingServiceImpl implements ExecutionTrackingService {
 
         Instant now = Instant.now();
 
-        ExecutionAttempt attempt = ExecutionAttempt.builder()
-                .primaryKey(
-                        new ExecutionAttemptPrimaryKey(
-                                event.getExecutionId(),
-                                attemptNumber))
-                .startedAt(now)
-                .executionStatus(ExecutionStatus.RUNNING)
-                .build();
+        ExecutionAttemptPrimaryKey primaryKey =
+                new ExecutionAttemptPrimaryKey(
+                        event.getExecutionId(),
+                        attemptNumber);
 
-        EntityWriteResult<ExecutionAttempt> result =
-                cassandraTemplate.insert(
-                        attempt,
-                        InsertOptions.builder()
-                                .withIfNotExists()
-                                .build());
+        // Check whether this execution attempt already exists
+        Optional<ExecutionAttempt> existingAttempt =
+                attemptRepository.findById(primaryKey);
 
-        if (!result.wasApplied()) {
+        /*
+         * First delivery of this attempt.
+         */
+        if (existingAttempt.isEmpty()) {
+
+            Instant leaseUntil = now.plus(EXECUTION_LEASE);
+
+            ExecutionAttempt attempt = ExecutionAttempt.builder()
+                    .primaryKey(primaryKey)
+                    .startedAt(now)
+                    .executionStatus(ExecutionStatus.RUNNING)
+                    .leaseUntil(leaseUntil)
+                    .build();
+
+            EntityWriteResult<ExecutionAttempt> result =
+                    cassandraTemplate.insert(
+                            attempt,
+                            InsertOptions.builder()
+                                    .withIfNotExists()
+                                    .build());
+
+            /*
+             * Another executor may have inserted the same attempt
+             * between findById() and INSERT IF NOT EXISTS.
+             */
+            if (!result.wasApplied()) {
+                return null;
+            }
+
+            ExecutionHistory history = ExecutionHistory.builder()
+                    .executionId(event.getExecutionId())
+                    .jobId(event.getJobId())
+                    .userId(event.getUserId())
+                    .scheduledExecutionTime(
+                            event.getScheduledExecutionTime()
+                                    .getEpochSecond() / 60)
+                    .executionStatus(ExecutionStatus.RUNNING)
+                    .startedAt(now)
+                    .lastAttemptTime(now)
+                    .totalAttempts(attemptNumber)
+                    .build();
+
+            historyRepository.save(history);
+
+            return ExecutionContext.builder()
+                    .executionHistory(history)
+                    .executionAttempt(attempt)
+                    .build();
+        }
+
+        /*
+         * Attempt already exists.
+         */
+        ExecutionAttempt attempt = existingAttempt.get();
+
+        /*
+         * The execution has already completed.
+         */
+        if (attempt.getExecutionStatus() == ExecutionStatus.COMPLETED) {
 
             log.info(
-                    "Duplicate execution attempt ignored. executionId={}, attempt={}",
+                    "Execution already completed. executionId={}, attempt={}",
                     event.getExecutionId(),
                     attemptNumber);
 
             return null;
         }
 
-        ExecutionHistory history = ExecutionHistory.builder()
-                .executionId(event.getExecutionId())
-                .jobId(event.getJobId())
-                .userId(event.getUserId())
-                .scheduledExecutionTime(event.getScheduledExecutionTime().getEpochSecond() / 60)
-                .executionStatus(ExecutionStatus.RUNNING)
-                .startedAt(now)
-                .lastAttemptTime(now)
-                .totalAttempts(attemptNumber)
-                .build();
+        /*
+         * This particular delivery attempt already failed.
+         *
+         * A new Kafka retry will have a different attemptNumber.
+         */
+        if (attempt.getExecutionStatus() == ExecutionStatus.FAILED) {
 
+            log.info("Execution attempt already failed. executionId={}, attempt={}",
+                    event.getExecutionId(),
+                    attemptNumber);
+
+            return null;
+        }
+
+        /*
+         * Previous executor is still within its lease.
+         */
+        if (attempt.getExecutionStatus() == ExecutionStatus.RUNNING
+                && attempt.getLeaseUntil() != null
+                && attempt.getLeaseUntil().isAfter(now)) {
+
+            log.info("Execution attempt is still active. executionId={}, attempt={}",
+                    event.getExecutionId(),
+                    attemptNumber);
+
+            throw new RetryableExecutionException(
+                    "Execution attempt is still active. executionId="
+                            + event.getExecutionId()
+                            + ", attempt="
+                            + attemptNumber,
+                    null);        }
+
+        /*
+         * RUNNING + expired lease.
+         *
+         * The previous executor is considered crashed/stuck.
+         * Reclaim the execution atomically using Cassandra LWT.
+         */
+        if (attempt.getExecutionStatus() == ExecutionStatus.RUNNING
+                && (attempt.getLeaseUntil() == null
+                || !attempt.getLeaseUntil().isAfter(now))) {
+
+            return reclaimExecution(
+                    event,
+                    attempt,
+                    now);
+        }
+
+        return null;
+    }
+
+    private ExecutionContext reclaimExecution(
+            JobExecutionEvent event,
+            ExecutionAttempt attempt,
+            Instant now) {
+
+        Instant newLeaseUntil = now.plus(EXECUTION_LEASE);
+
+        attempt.setStartedAt(now);
+        attempt.setLeaseUntil(newLeaseUntil);
+
+        ExecutionHistory history =
+                historyRepository.findById(event.getExecutionId())
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "Execution history not found for executionId="
+                                                + event.getExecutionId()));
+
+        history.setExecutionStatus(ExecutionStatus.RUNNING);
+        history.setLastAttemptTime(now);
+
+        attemptRepository.save(attempt);
         historyRepository.save(history);
+
+        log.info(
+                "Reclaimed expired execution. executionId={}, attempt={}",
+                event.getExecutionId(),
+                attempt.getPrimaryKey().getAttemptNumber());
 
         return ExecutionContext.builder()
                 .executionHistory(history)

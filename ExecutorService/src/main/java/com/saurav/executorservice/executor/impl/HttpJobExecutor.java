@@ -1,18 +1,20 @@
 package com.saurav.executorservice.executor.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saurav.executorservice.exception.NonRetryableHttpException;
 import com.saurav.executorservice.exception.PayloadDeserializationException;
+import com.saurav.executorservice.exception.RetryableExecutionException;
 import com.saurav.executorservice.model.enums.JobType;
 import com.saurav.executorservice.executor.JobExecutor;
 import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.model.payload.HttpJobPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 
@@ -40,6 +42,7 @@ public class HttpJobExecutor implements JobExecutor {
                     HttpJobPayload.class);
 
         } catch (Exception ex) {
+
             throw new PayloadDeserializationException(
                     "Failed to deserialize HTTP job payload",
                     ex);
@@ -51,17 +54,54 @@ public class HttpJobExecutor implements JobExecutor {
             payload.getHeaders().forEach(headers::add);
         }
 
-        ResponseEntity<String> response = restClient
-                .method(payload.getMethod())
-                .uri(payload.getUrl())
-                .headers(httpHeaders -> httpHeaders.addAll(headers))
-                .body(payload.getBody())
-                .retrieve()
-                .toEntity(String.class);
+        try {
 
-        log.info("HTTP job executed successfully. executionId={}, jobId={}, status={}",
-                event.getExecutionId(),
-                event.getJobId(),
-                response.getStatusCode());
+            ResponseEntity<String> res = restClient
+                    .method(payload.getMethod())
+                    .uri(payload.getUrl())
+                    .headers(httpHeaders ->
+                            httpHeaders.addAll(headers))
+                    .body(payload.getBody())
+                    .retrieve()
+
+                    // 4xx → permanent failure
+                    .onStatus(
+                            HttpStatusCode::is4xxClientError,
+                            (request, response) -> {
+
+                                throw new NonRetryableHttpException(
+                                        "HTTP client error: "
+                                                + response.getStatusCode());
+                            })
+
+                    // 5xx → transient failure
+                    .onStatus(
+                            HttpStatusCode::is5xxServerError,
+                            (request, response) -> {
+
+                                throw new RetryableExecutionException(
+                                        "HTTP server error: "
+                                                + response.getStatusCode(),
+                                        null);
+                            })
+
+                    .toEntity(String.class);
+
+            log.info(
+                    "HTTP job executed successfully. executionId={}, jobId={}, status={}",
+                    event.getExecutionId(),
+                    event.getJobId(),
+                    res.getStatusCode());
+
+        } catch (ResourceAccessException ex) {
+
+            /*
+             * Connection timeout, connection refused,
+             * DNS/network related failures, etc.
+             */
+            throw new RetryableExecutionException(
+                    "HTTP request failed due to network error",
+                    ex);
+        }
     }
 }
