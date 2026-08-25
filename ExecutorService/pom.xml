@@ -11,8 +11,8 @@
 	<groupId>com.saurav</groupId>
 	<artifactId>ExecutorService</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<name>ExecutorService</name>
+	<description>Distributed Scheduler Executor Service</description>
 	<url/>
 	<licenses>
 		<license/>

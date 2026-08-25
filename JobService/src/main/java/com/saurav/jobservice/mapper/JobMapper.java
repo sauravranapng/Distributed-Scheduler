@@ -12,6 +12,7 @@ import com.saurav.jobservice.model.response.HttpJobDetailsResponse;
 import com.saurav.jobservice.model.response.JobDetailsResponse;
 import com.saurav.jobservice.model.response.JobResponse;
 import com.saurav.jobservice.model.response.JobSummaryResponse;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -84,7 +85,7 @@ public class JobMapper {
 
         populateCommonFields(job, response);
 
-        response.setMethod(payload.getMethod());
+        response.setMethod(HttpMethod.valueOf(payload.getMethod()));
         response.setUrl(payload.getUrl());
         response.setHeaders(payload.getHeaders());
         response.setBody(payload.getBody());

@@ -8,11 +8,9 @@ import com.saurav.jobservice.model.request.UpdateHttpJobRequest;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,

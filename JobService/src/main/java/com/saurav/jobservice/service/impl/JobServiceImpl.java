@@ -65,7 +65,7 @@ public class JobServiceImpl implements JobService {
             CreateHttpJobRequest request) {
 
         HttpJobPayload payload = HttpJobPayload.builder()
-                .method(request.getMethod())
+                .method(request.getMethod().name())
                 .url(request.getUrl())
                 .headers(request.getHeaders())
                 .body(request.getBody())

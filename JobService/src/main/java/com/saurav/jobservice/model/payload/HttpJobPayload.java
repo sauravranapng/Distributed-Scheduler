@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.http.HttpMethod;
 
 import java.util.Map;
 
@@ -14,7 +13,7 @@ import java.util.Map;
 @NoArgsConstructor
 public class HttpJobPayload implements JobPayload{
 
-    private HttpMethod method;
+    private String method;
 
     private String url;
 

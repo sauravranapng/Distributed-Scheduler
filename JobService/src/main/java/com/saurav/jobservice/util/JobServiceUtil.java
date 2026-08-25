@@ -11,6 +11,7 @@ import com.saurav.jobservice.model.request.ScheduleRequest;
 import com.saurav.jobservice.model.request.UpdateEmailJobRequest;
 import com.saurav.jobservice.model.request.UpdateHttpJobRequest;
 import com.saurav.jobservice.model.response.UpdateJobRequest;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 import static com.saurav.jobservice.util.Constants.TOTAL_SEGMENTS;
 
+@Slf4j
 public class JobServiceUtil {
     static final ObjectMapper objectMapper = new ObjectMapper();
     private JobServiceUtil(){
@@ -34,6 +36,10 @@ public class JobServiceUtil {
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException ex) {
+            log.error(
+                    "Failed to serialize job payload. payloadType={}",
+                    payload.getClass().getName(),
+                    ex);
             throw new PayloadSerializationException(
                     "Failed to serialize job payload.",
                     ex);
@@ -44,7 +50,7 @@ public class JobServiceUtil {
         if (request instanceof UpdateHttpJobRequest httpRequest) {
 
             HttpJobPayload payload = HttpJobPayload.builder()
-                    .method(httpRequest.getMethod())
+                    .method(httpRequest.getMethod().name())
                     .url(httpRequest.getUrl())
                     .headers(httpRequest.getHeaders())
                     .body(httpRequest.getBody())

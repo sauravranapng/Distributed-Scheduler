@@ -26,20 +26,25 @@ public class Job {
 
         private boolean recurring;
 
+        @Column("job_type")
         private JobType jobType;
 
+        @Column("job_payload")
         @CassandraType(type = CassandraType.Name.TEXT)
         private String jobPayload;
 
+        @Column("interval")
         @CassandraType(type = CassandraType.Name.TEXT)
         private String interval;
 
+        @Column("max_executions")
         private Integer maxExecutions;
 
         @Column("start_time")
         @CassandraType(type = CassandraType.Name.TIMESTAMP)
         private Instant startTime;
 
+        @Column("end_time")
         private Instant endTime;
 
         @Column("created_time")

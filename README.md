@@ -68,7 +68,7 @@ Navigate to `kafka_2.13-4.3.1\bin\windows` and <br>
 run:<br>
 `kafka-storage.bat random-uuid` then take this UUID(cluster-id) and <br>
 run:<br>
-`kafka-storage format -t <cluster-id> -c ..\..\config\kraft\server.properties`<br>
+`kafka-storage format -t <cluster-id> -c ..\..\config\server.properties`<br>
 start Broker with:<br>
 `kafka-server-start.bat ..\..\config\kraft\server.properties`<br>
 

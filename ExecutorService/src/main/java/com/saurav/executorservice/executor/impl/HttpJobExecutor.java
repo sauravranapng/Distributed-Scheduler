@@ -43,9 +43,7 @@ public class HttpJobExecutor implements JobExecutor {
 
         } catch (Exception ex) {
 
-            throw new PayloadDeserializationException(
-                    "Failed to deserialize HTTP job payload",
-                    ex);
+            throw new PayloadDeserializationException("Failed to deserialize HTTP job payload", ex);
         }
 
         HttpHeaders headers = new HttpHeaders();
@@ -87,8 +85,7 @@ public class HttpJobExecutor implements JobExecutor {
 
                     .toEntity(String.class);
 
-            log.info(
-                    "HTTP job executed successfully. executionId={}, jobId={}, status={}",
+            log.info("HTTP job executed successfully. executionId={}, jobId={}, status={}",
                     event.getExecutionId(),
                     event.getJobId(),
                     res.getStatusCode());
@@ -99,9 +96,7 @@ public class HttpJobExecutor implements JobExecutor {
              * Connection timeout, connection refused,
              * DNS/network related failures, etc.
              */
-            throw new RetryableExecutionException(
-                    "HTTP request failed due to network error",
-                    ex);
+            throw new RetryableExecutionException("HTTP request failed due to network error", ex);
         }
     }
 }

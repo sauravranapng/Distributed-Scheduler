@@ -9,11 +9,11 @@ import java.util.UUID;
 public class ScheduleLookupMapper {
 
     public ScheduleLookup toEntity(UUID jobId , long nextExecutionTime, int segment){
-        ScheduleLookup lookup = new ScheduleLookup();
+        return ScheduleLookup.builder()
+                .jobId(jobId)
+                .nextExecutionTime(nextExecutionTime)
+                .segment(segment)
+                .build();
 
-        lookup.setJobId(jobId);
-        lookup.setNextExecutionTime(nextExecutionTime);
-        lookup.setSegment(segment);
-        return lookup;
     }
 }

@@ -13,6 +13,7 @@ import java.util.UUID;
 @Table("schedule_lookup")
 public class ScheduleLookup {
     @PrimaryKey
+    @Column("job_id")
     private UUID jobId;
 
     @Column("next_execution_time")
