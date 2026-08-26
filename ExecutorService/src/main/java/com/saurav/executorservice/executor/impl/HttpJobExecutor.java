@@ -11,6 +11,7 @@ import com.saurav.executorservice.model.payload.HttpJobPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -55,7 +56,7 @@ public class HttpJobExecutor implements JobExecutor {
         try {
 
             ResponseEntity<String> res = restClient
-                    .method(payload.getMethod())
+                    .method(HttpMethod.valueOf(payload.getMethod()))
                     .uri(payload.getUrl())
                     .headers(httpHeaders ->
                             httpHeaders.addAll(headers))

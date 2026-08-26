@@ -45,3 +45,9 @@ app:
     topic: scheduling-topic
   cassandra:
     schema-script: db/migration/V1__init_schema.cql
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
