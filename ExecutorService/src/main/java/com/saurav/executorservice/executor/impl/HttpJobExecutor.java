@@ -1,6 +1,5 @@
 package com.saurav.executorservice.executor.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saurav.executorservice.exception.NonRetryableHttpException;
 import com.saurav.executorservice.exception.PayloadDeserializationException;
 import com.saurav.executorservice.exception.RetryableExecutionException;
@@ -10,6 +9,7 @@ import com.saurav.executorservice.model.event.JobExecutionEvent;
 import com.saurav.executorservice.model.payload.HttpJobPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 
 @Component
@@ -27,6 +28,9 @@ public class HttpJobExecutor implements JobExecutor {
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
+    @Value("${executor.test.delay-ms:0}")
+    private long testDelayMs;
+
     @Override
     public JobType supportedType() {
         return JobType.HTTP;
@@ -34,6 +38,16 @@ public class HttpJobExecutor implements JobExecutor {
 
     @Override
     public void execute(JobExecutionEvent event) {
+
+        if (testDelayMs > 0) {
+            try {
+                Thread.sleep(testDelayMs);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new RetryableExecutionException(
+                        "Executor thread was interrupted", ex);
+            }
+        }
 
         HttpJobPayload payload;
 
@@ -55,18 +69,23 @@ public class HttpJobExecutor implements JobExecutor {
 
         try {
 
-            ResponseEntity<String> res = restClient
+            RestClient.RequestBodySpec request = restClient
                     .method(HttpMethod.valueOf(payload.getMethod()))
                     .uri(payload.getUrl())
                     .headers(httpHeaders ->
-                            httpHeaders.addAll(headers))
-                    .body(payload.getBody())
+                            httpHeaders.addAll(headers));
+
+            if (payload.getBody() != null) {
+                request.body(payload.getBody());
+            }
+
+            ResponseEntity<String> res = request
                     .retrieve()
 
                     // 4xx → permanent failure
                     .onStatus(
                             HttpStatusCode::is4xxClientError,
-                            (request, response) -> {
+                            (requestSpec, response) -> {
 
                                 throw new NonRetryableHttpException(
                                         "HTTP client error: "
@@ -76,7 +95,7 @@ public class HttpJobExecutor implements JobExecutor {
                     // 5xx → transient failure
                     .onStatus(
                             HttpStatusCode::is5xxServerError,
-                            (request, response) -> {
+                            (requestSpec, response) -> {
 
                                 throw new RetryableExecutionException(
                                         "HTTP server error: "
@@ -86,12 +105,13 @@ public class HttpJobExecutor implements JobExecutor {
 
                     .toEntity(String.class);
 
-            log.info("HTTP job executed successfully. executionId={}, jobId={}, status={}",
+            log.info(
+                    "HTTP job executed successfully. executionId={}, jobId={}, status={}",
                     event.getExecutionId(),
                     event.getJobId(),
                     res.getStatusCode());
 
-        } catch (ResourceAccessException ex) {
+        }catch (ResourceAccessException ex) {
 
             /*
              * Connection timeout, connection refused,

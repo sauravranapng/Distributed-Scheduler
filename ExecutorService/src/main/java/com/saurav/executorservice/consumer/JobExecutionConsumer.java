@@ -41,7 +41,11 @@ public class JobExecutionConsumer {
             topics = "${app.kafka.topic}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void consume(JobExecutionEvent event, @Header(KafkaHeaders.DELIVERY_ATTEMPT) int attempt) {
+    public void consume(JobExecutionEvent event, @Header(
+            value = KafkaHeaders.DELIVERY_ATTEMPT,
+            required = false,
+            defaultValue = "1"
+    ) int attempt) {
 
         log.info("Received executionId={}, jobId={}, userId={}", event.getExecutionId(), event.getJobId(), event.getUserId());
 

@@ -3,7 +3,6 @@ package com.saurav.jobservice.util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saurav.jobservice.exception.PayloadSerializationException;
-import com.saurav.jobservice.model.enums.JobType;
 import com.saurav.jobservice.model.payload.EmailJobPayload;
 import com.saurav.jobservice.model.payload.HttpJobPayload;
 import com.saurav.jobservice.model.payload.JobPayload;

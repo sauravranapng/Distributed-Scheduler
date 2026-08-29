@@ -1,6 +1,5 @@
 package com.saurav.executorservice.executor.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saurav.executorservice.exception.PayloadDeserializationException;
 import com.saurav.executorservice.executor.JobExecutor;
 import com.saurav.executorservice.model.enums.JobType;
@@ -9,6 +8,7 @@ import com.saurav.executorservice.model.payload.EmailJobPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
