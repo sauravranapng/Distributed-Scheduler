@@ -28,7 +28,7 @@ public class HttpJobExecutor implements JobExecutor {
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
-    @Value("${executor.test.delay-ms:0}")
+    @Value("${app.executor.test.delay-ms}")
     private long testDelayMs;
 
     @Override

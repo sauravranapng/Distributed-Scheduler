@@ -35,7 +35,7 @@ services:
       - scheduler-network
 
   ###############################################################
-  # Kafka (KRaft Mode)
+  # Kafka (Kraft Mode)
   ###############################################################
   kafka:
 
@@ -98,6 +98,38 @@ services:
 
     networks:
       - scheduler-network
+
+  ###############################################################
+  # Kafka Exporter - Exposes Kafka metrics for Prometheus
+  ###############################################################
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    command:
+      - "--kafka.server=kafka:9092"
+    ports:
+      - "9308:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - scheduler-network
+
+  ###############################################################
+  # Grafana
+  ###############################################################
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - scheduler-network
+
 
   ###############################################################
   # Job Service
@@ -254,3 +286,5 @@ volumes:
   zookeeper-data:
 
   zookeeper-log:
+
+  grafana-data:

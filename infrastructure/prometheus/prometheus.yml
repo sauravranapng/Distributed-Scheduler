@@ -2,7 +2,7 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
-
+# To monitor the executor service, we need to add a job for it in the Prometheus configuration.
   - job_name: executorservice
 
     metrics_path: /actuator/prometheus
@@ -10,3 +10,9 @@ scrape_configs:
     static_configs:
       - targets:
           - executorservice:8083
+
+# To monitor Kafka metrics, we need to add a job for the Kafka exporter in the Prometheus configuration.
+  - job_name: kafka-exporter
+    static_configs:
+      - targets:
+          - kafka-exporter:9308
