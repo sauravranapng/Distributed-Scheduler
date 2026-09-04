@@ -114,6 +114,23 @@ services:
         condition: service_healthy
     networks:
       - scheduler-network
+  ###############################################################
+  # cAdvisor - Exposes container metrics for Prometheus
+  ###############################################################
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    networks:
+      - scheduler-network
 
   ###############################################################
   # Grafana
@@ -227,19 +244,12 @@ services:
       context: ./ExecutorService
       dockerfile: Dockerfile
 
-    container_name: executorservice
-
-    hostname: executorservice
-
     restart: unless-stopped
 
     depends_on:
 
       kafka:
         condition: service_healthy
-
-    ports:
-      - "${EXECUTOR_SERVICE_PORT}:8083"
 
     environment:
 
