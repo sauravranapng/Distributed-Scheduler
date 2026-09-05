@@ -27,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulingServiceTest {
@@ -275,7 +277,7 @@ class SchedulingServiceTest {
     }
 
     @Test
-    void fetchAndPublishJobs_shouldDeleteOneTimeJobAfterSuccessfulPublish() {
+    void fetchAndPublishJobs_shouldDeleteOneTimeJobAfterSuccessfulPublish() throws InterruptedException {
 
         TaskSchedule task =
                 createOneTimeTask(100L);
@@ -287,15 +289,18 @@ class SchedulingServiceTest {
                 ))
                 .thenReturn(List.of(task));
 
+        SendResult<String, JobExecutionEvent> sendResult = mock(SendResult.class, RETURNS_DEEP_STUBS);
         when(kafkaTemplate.send(
                 anyString(),
                 anyString(),
                 any(JobExecutionEvent.class)
         )).thenReturn(
-                CompletableFuture.completedFuture(null)
+                CompletableFuture.completedFuture(sendResult)
         );
 
         schedulingService.fetchAndPublishJobs();
+        
+        Thread.sleep(100);
 
         verify(taskScheduleRepository)
                 .delete(task);
@@ -340,7 +345,7 @@ class SchedulingServiceTest {
     }
 
     @Test
-    void recurringJob_shouldBeRescheduledAfterSuccessfulPublish() {
+    void recurringJob_shouldBeRescheduledAfterSuccessfulPublish() throws InterruptedException {
 
         TaskSchedule task =
                 createRecurringTask(
@@ -369,15 +374,18 @@ class SchedulingServiceTest {
                 eq(2)
         )).thenReturn(nextSchedule);
 
+        SendResult<String, JobExecutionEvent> sendResult = mock(SendResult.class, RETURNS_DEEP_STUBS);
         when(kafkaTemplate.send(
                 anyString(),
                 anyString(),
                 any(JobExecutionEvent.class)
         )).thenReturn(
-                CompletableFuture.completedFuture(null)
+                CompletableFuture.completedFuture(sendResult)
         );
 
         schedulingService.fetchAndPublishJobs();
+        
+        Thread.sleep(100);
 
         verify(taskScheduleRepository)
                 .save(nextSchedule);
@@ -390,7 +398,7 @@ class SchedulingServiceTest {
     }
 
     @Test
-    void recurringJob_shouldDeleteAfterFinalExecution() {
+    void recurringJob_shouldDeleteAfterFinalExecution() throws InterruptedException {
 
         TaskSchedule task =
                 createRecurringTask(
@@ -406,15 +414,18 @@ class SchedulingServiceTest {
                 ))
                 .thenReturn(List.of(task));
 
+        SendResult<String, JobExecutionEvent> sendResult = mock(SendResult.class, RETURNS_DEEP_STUBS);
         when(kafkaTemplate.send(
                 anyString(),
                 anyString(),
                 any(JobExecutionEvent.class)
         )).thenReturn(
-                CompletableFuture.completedFuture(null)
+                CompletableFuture.completedFuture(sendResult)
         );
 
         schedulingService.fetchAndPublishJobs();
+        
+        Thread.sleep(100);
 
         verify(taskScheduleRepository)
                 .delete(task);
@@ -500,7 +511,7 @@ class SchedulingServiceTest {
     }
 
     @Test
-    void recurringJob_shouldDeleteWhenNextExecutionExceedsEndTime() {
+    void recurringJob_shouldDeleteWhenNextExecutionExceedsEndTime() throws InterruptedException {
 
         long currentExecution = 100L;
 
@@ -531,15 +542,18 @@ class SchedulingServiceTest {
                 ))
                 .thenReturn(List.of(task));
 
+        SendResult<String, JobExecutionEvent> sendResult = mock(SendResult.class, RETURNS_DEEP_STUBS);
         when(kafkaTemplate.send(
                 anyString(),
                 anyString(),
                 any(JobExecutionEvent.class)
         )).thenReturn(
-                CompletableFuture.completedFuture(null)
+                CompletableFuture.completedFuture(sendResult)
         );
 
         schedulingService.fetchAndPublishJobs();
+        
+        Thread.sleep(100);
 
         verify(taskScheduleRepository)
                 .delete(task);

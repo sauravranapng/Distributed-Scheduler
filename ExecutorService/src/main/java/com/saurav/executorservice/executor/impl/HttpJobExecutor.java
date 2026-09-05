@@ -1,5 +1,6 @@
 package com.saurav.executorservice.executor.impl;
 
+import com.saurav.executorservice.client.HttpClient;
 import com.saurav.executorservice.exception.NonRetryableHttpException;
 import com.saurav.executorservice.exception.PayloadDeserializationException;
 import com.saurav.executorservice.exception.RetryableExecutionException;
@@ -26,7 +27,7 @@ import tools.jackson.databind.ObjectMapper;
 public class HttpJobExecutor implements JobExecutor {
 
     private final ObjectMapper objectMapper;
-    private final RestClient restClient;
+    private final HttpClient httpClient;
 
     @Value("${app.executor.test.delay-ms}")
     private long testDelayMs;
@@ -61,63 +62,12 @@ public class HttpJobExecutor implements JobExecutor {
             throw new PayloadDeserializationException("Failed to deserialize HTTP job payload", ex);
         }
 
-        HttpHeaders headers = new HttpHeaders();
+        httpClient.execute(payload);
 
-        if (payload.getHeaders() != null) {
-            payload.getHeaders().forEach(headers::add);
-        }
+        log.info(
+                "HTTP job executed successfully. executionId={}, jobId={}",
+                event.getExecutionId(),
+                event.getJobId());
 
-        try {
-
-            RestClient.RequestBodySpec request = restClient
-                    .method(HttpMethod.valueOf(payload.getMethod()))
-                    .uri(payload.getUrl())
-                    .headers(httpHeaders ->
-                            httpHeaders.addAll(headers));
-
-            if (payload.getBody() != null) {
-                request.body(payload.getBody());
-            }
-
-            ResponseEntity<String> res = request
-                    .retrieve()
-
-                    // 4xx → permanent failure
-                    .onStatus(
-                            HttpStatusCode::is4xxClientError,
-                            (requestSpec, response) -> {
-
-                                throw new NonRetryableHttpException(
-                                        "HTTP client error: "
-                                                + response.getStatusCode());
-                            })
-
-                    // 5xx → transient failure
-                    .onStatus(
-                            HttpStatusCode::is5xxServerError,
-                            (requestSpec, response) -> {
-
-                                throw new RetryableExecutionException(
-                                        "HTTP server error: "
-                                                + response.getStatusCode(),
-                                        null);
-                            })
-
-                    .toEntity(String.class);
-
-            log.info(
-                    "HTTP job executed successfully. executionId={}, jobId={}, status={}",
-                    event.getExecutionId(),
-                    event.getJobId(),
-                    res.getStatusCode());
-
-        }catch (ResourceAccessException ex) {
-
-            /*
-             * Connection timeout, connection refused,
-             * DNS/network related failures, etc.
-             */
-            throw new RetryableExecutionException("HTTP request failed due to network error", ex);
-        }
     }
 }
