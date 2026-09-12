@@ -63,7 +63,7 @@ USER spring
 # The Spring Boot application listens on the port configured by server.port.
 # EXPOSE only documents the intended container port. The actual host-to-container
 # port mapping is configured when running the container using:
-# docker run -p <host-port>:<container-port>
+# docker run -p <host-port>:<container-port> or in docker-compose.yml.
 EXPOSE 8084
 
 # Command executed when the container starts.

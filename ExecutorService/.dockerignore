@@ -3,3 +3,5 @@ target/
 .idea/
 *.iml
 README.md
+src/main/resources/application-local.yml
+src/main/resources/astra/*.zip

@@ -170,6 +170,13 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
       JAVA_OPTS: ${JAVA_OPTS}
+      SERVER_PORT: 8084
+      ASTRA_USERNAME: ${ASTRA_USERNAME}
+      ASTRA_PASSWORD: ${ASTRA_PASSWORD}
+      SECURE_CONNECT_BUNDLE: file:/run/secrets/secure-connect-scheduler.zip
+# Your application isn't reading the bundle from inside the Docker image. It's getting it from the host filesystem (Ubuntu) through the bind mount.
+    volumes:
+      - ./secrets/astra/secure-connect-scheduler.zip:/run/secrets/secure-connect-scheduler.zip:ro:/run/secrets/secure-connect-scheduler.zip:ro
 
 # Docker executes it inside the JobService container.Since both the Spring Boot application and wget are inside the same container hence localhost will resolve to the container itself and the health check will work as expected.
     healthcheck:
@@ -214,10 +221,17 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE}
 #for restricting the memory and heap size of the JVM running inside the container.
       JAVA_OPTS: ${JAVA_OPTS}
+      SERVER_PORT: 8082
+      ASTRA_USERNAME: ${ASTRA_USERNAME}
+      ASTRA_PASSWORD: ${ASTRA_PASSWORD}
+      SECURE_CONNECT_BUNDLE: file:/run/secrets/secure-connect-scheduler.zip
 
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
       ZOOKEEPER_CONNECT_STRING: zookeeper:2181
+
+    volumes:
+      - ./secrets/astra/secure-connect-scheduler.zip:/run/secrets/secure-connect-scheduler.zip:ro:/run/secrets/secure-connect-scheduler.zip:ro
 
     healthcheck:
       test:
@@ -257,7 +271,14 @@ services:
 
       JAVA_OPTS: ${JAVA_OPTS}
 
+      ASTRA_USERNAME: ${ASTRA_USERNAME}
+      ASTRA_PASSWORD: ${ASTRA_PASSWORD}
+      SECURE_CONNECT_BUNDLE: file:/run/secrets/secure-connect-scheduler.zip
+      SERVER_PORT: 8083
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+    volumes:
+      - ./secrets/astra/secure-connect-scheduler.zip:/run/secrets/secure-connect-scheduler.zip:ro
 
     healthcheck:
       test:

@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8082
 
 spring:
   cassandra:
@@ -8,7 +8,7 @@ spring:
     password: ${ASTRA_PASSWORD}
     schema-action: none
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: kafka:9092
 
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -49,7 +49,7 @@ springdoc:
 
 
 zookeeper:
-  connect-string: localhost:2181
+  connect-string: zookeeper:2181
   leader-path: /scheduling-service/leader
   assignment-path: /scheduling-service/segments/assignments
   instances-path: /scheduling-service/instances
