@@ -1,0 +1,24 @@
+services:
+
+  kafka:
+    image: ${DOCKERHUB_USERNAME}/scheduler-kafka:${IMAGE_TAG}
+
+    build: !reset null
+
+    ports:
+      - "${KAFKA_PORT}:9092"
+
+  jobservice:
+    image: ${DOCKERHUB_USERNAME}/scheduler-jobservice:${IMAGE_TAG}
+
+    build: !reset null
+
+  schedulingservice:
+    image: ${DOCKERHUB_USERNAME}/scheduler-schedulingservice:${IMAGE_TAG}
+
+    build: !reset null
+
+  executorservice:
+    image: ${DOCKERHUB_USERNAME}/scheduler-executorservice:${IMAGE_TAG}
+
+    build: !reset null
